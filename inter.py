@@ -63,6 +63,7 @@ class Embed(nn.Module):
     def __init__(self, input_size, embedding_size):
         super(Embed, self).__init__()
         self.embedding_table = nn.Embedding(input_size, embedding_size)
+        self.embedding_table.weight.data.copy_(torch.zeros(input_size,embedding_size).uniform_(-1,1))
         self.embedding_table.weight.data[0] = torch.zeros(embedding_size) #ensure that the representation of paddings are tensors of zeros, which then easily can be used in an average rep
     
     def forward(self, input):
@@ -204,7 +205,7 @@ def train_on_batch(xinput, targetvalues, sl, session_reps, sr_sl, user_list):
     divident[0] = sum(sl)
     if(USE_CUDA):
         divident = divident.cuda()
-    mean_loss = sum_loss/divident
+    mean_loss = reshaped_loss.mean(0)#sum_loss/divident
 
     #calculate gradients
     mean_loss.backward()
@@ -269,7 +270,7 @@ while epoch_nr < MAX_EPOCHS:
         xinput, targetvalues, sl, session_reps, sr_sl, user_list, _ = datahandler.get_next_train_batch()
 
         #print batch loss and ETA occationally
-        if batch_nr%100 == 0:
+        if batch_nr%1000 == 0:
             print("Batch: " + str(batch_nr) + "/" + str(num_training_batches) + " loss: " + str(batch_loss))
             eta = (batch_runtime*(num_training_batches-batch_nr))/60
             eta = "%.2f" % eta
@@ -303,16 +304,17 @@ while epoch_nr < MAX_EPOCHS:
         batch_runtime = time.time() - batch_start_time
 
         #print progress and ETA occationally
-        if batch_nr%100 == 0:
-            print("Batch: " + str(batch_nr) + "/" + str(num_test_batches))
+        if batch_nr%400 == 0:
+            #print("Batch: " + str(batch_nr) + "/" + str(num_test_batches))
             eta = (batch_runtime*(num_test_batches-batch_nr))/60
             eta = "%.2f" % eta
-            print(" | ETA:", eta, "minutes.")
+            #print(" | ETA:", eta, "minutes.")
         
     # Print final test stats for epoch
     test_stats, current_recall5, current_recall20 = tester.get_stats_and_reset()
     print("Recall@5 = " + str(current_recall5))
     print("Recall@20 = " + str(current_recall20))
+    print(test_stats)
     print("Epoch #" + str(epoch_nr) + " Time: " + str(time.time()-start_time_epoch))
     epoch_nr += 1
     epoch_loss = 0

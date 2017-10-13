@@ -139,9 +139,6 @@ class IIRNNDataHandler:
                 self.users_with_remaining_sessions.remove(user)
 
         #sort batch based on seq rep len
-        sess_rep_lengths, sess_rep_batch = zip(*sorted(zip(sess_rep_lengths, sess_rep_batch), key=lambda x: x[0], reverse=True))
-        sess_rep_lengths = list(sess_rep_lengths)
-        sess_rep_batch = list(sess_rep_batch)
         session_batch = [[event[1] for event in session] for session in session_batch]
         x = [session[:-1] for session in session_batch]
         y = [session[1:] for session in session_batch]
@@ -152,7 +149,11 @@ class IIRNNDataHandler:
                 session_lengths.append(0)
                 sess_rep_batch.append([[0]*self.LT_INTERNALSIZE]*self.MAX_SESSION_REPRESENTATIONS)
                 sess_rep_lengths.append(1)
-
+        sess_rep_lengths, sess_rep_batch, x, y = zip(*sorted(zip(sess_rep_lengths, sess_rep_batch, x, y), key=lambda x: x[0], reverse=True))
+        sess_rep_lengths = list(sess_rep_lengths)
+        sess_rep_batch = list(sess_rep_batch)
+        x = list(x)
+        y = list(y)
         return x, y, session_lengths, sess_rep_batch, sess_rep_lengths, user_list, sess_time_vectors
 
     def get_next_train_batch(self):
