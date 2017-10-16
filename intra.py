@@ -1,10 +1,5 @@
-import glob
-import unicodedata
-import string
 import torch
-import random
 import time
-import math
 
 from datahandler import PlainRNNDataHandler
 from tester import Tester
@@ -47,7 +42,7 @@ elif dataset == lastfm:
 EMBEDDING_SIZE = HIDDEN_SIZE
 
 #setting of seed
-torch.manual_seed(42) #seed CPU
+torch.manual_seed(0) #seed CPU
 
 #loading of dataset into datahandler and getting relevant iformation about the dataset
 datahandler = PlainRNNDataHandler(dataset_path, BATCHSIZE)
@@ -64,8 +59,9 @@ class Intra_RNN(nn.Module):
         self.output_size = output_size
         if(USE_CUDA_EMBED):
             self.embed = nn.Embedding(output_size, embedding_dim)
+            self.embed.weight.data.copy_(torch.zeros(output_size,embedding_dim).uniform_(-1,1))
         self.gru_dropout1 = nn.Dropout(dropout_rate)
-        self.gru = nn.GRU(embedding_dim, hidden_size)
+        self.gru = nn.GRU(embedding_dim, hidden_size,batch_first=True)
         self.gru_dropout2 = nn.Dropout(dropout_rate)
         self.linear = nn.Linear(hidden_size, output_size)
     
@@ -114,9 +110,9 @@ def masked_cross_entropy_loss(y_hat, y):
 
 def process_batch(xinput, targetvalues):
     training_batch = torch.LongTensor(xinput)
-    training_batch = Variable(training_batch.view(SEQLEN, BATCHSIZE))
+    training_batch = Variable(training_batch)
     targets = torch.LongTensor(targetvalues)
-    targets = Variable(targets.view(SEQLEN, BATCHSIZE))
+    targets = Variable(targets)
     if(USE_CUDA_EMBED):
         training_batch = training_batch.cuda()
         embedded_data = training_batch
@@ -154,10 +150,10 @@ def train_on_batch(xinput, targetvalues, sl):
     divident[0] = sum(sl)
     if(USE_CUDA):
         divident = divident.cuda()
-    mean_loss = sum_loss/divident
+    mean_loss = reshaped_loss.mean(0)#sum_loss/divident
 
     #calculate gradients
-    sum_loss.backward()
+    mean_loss.backward()
 
     #update parameters by using the gradients and optimizers
     optimizer.step()
@@ -168,8 +164,8 @@ def train_on_batch(xinput, targetvalues, sl):
 def predict_on_batch(xinput, targetvalues, sl):
     X, Y = process_batch(xinput, targetvalues)
     hidden = rnn.init_hidden(BATCHSIZE)
-    output = rnn(X, hidden)
-    k_values, k_predictions = torch.topk(output[0], TOP_K)
+    output, _ = rnn(X, hidden)
+    k_values, k_predictions = torch.topk(output, TOP_K)
     return k_predictions
 
 
@@ -188,7 +184,7 @@ while epoch_nr < MAX_EPOCHS:
     datahandler.reset_user_batch_data()
     xinput, targetvalues, sl = datahandler.get_next_train_batch()
     batch_nr = 0
-    while(len(xinput) > int(BATCHSIZE/2)): #Why is the stopping condition this?
+    while(len(xinput) > int(BATCHSIZE/2)): #TODO: CHECK IF THIS IS THE REASON FOR THE BAD RESULTS, OR IF THE REDUCED DATASET WAS. COULD BE A COMBINATION (A FEW USERS WITH VERY MANY SESSIONS/UNBALANCED)
       	#batch training
         batch_start_time = time.time()
 
@@ -201,7 +197,7 @@ while epoch_nr < MAX_EPOCHS:
         xinput, targetvalues, sl = datahandler.get_next_train_batch()
 
         #print batch loss and ETA occationally
-        if batch_nr%100 == 0:
+        if batch_nr%1000 == 0:
             print("Batch: " + str(batch_nr) + "/" + str(num_training_batches) + " loss: " + str(batch_loss))
             eta = (batch_runtime*(num_training_batches-batch_nr))/60
             eta = "%.2f" % eta
@@ -235,7 +231,7 @@ while epoch_nr < MAX_EPOCHS:
         batch_runtime = time.time() - batch_start_time
 
         #print progress and ETA occationally
-        if batch_nr%100 == 0:
+        if batch_nr%400 == 0:
             print("Batch: " + str(batch_nr) + "/" + str(num_test_batches))
             eta = (batch_runtime*(num_test_batches-batch_nr))/60
             eta = "%.2f" % eta
@@ -246,5 +242,6 @@ while epoch_nr < MAX_EPOCHS:
     print("Recall@5 = " + str(current_recall5))
     print("Recall@20 = " + str(current_recall20))
     print("Epoch #" + str(epoch_nr) + " Time: " + str(time.time()-start_time_epoch))
+    print(test_stats)
     epoch_nr += 1
     epoch_loss = 0
