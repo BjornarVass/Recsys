@@ -81,10 +81,14 @@ class Inter_RNN(nn.Module):
         self.gru = nn.GRU(hidden_size, hidden_size, batch_first=True)
         self.gru_dropout2 = nn.Dropout(dropout_rate)
     
-    def forward(self, input, hidden, sr_sl):
+    def forward(self, input, hidden, rep_indicies):
         input = self.gru_dropout1(input)
-        padded_sessions = nn.utils.rnn.pack_padded_sequence(input,sr_sl, batch_first=True)
-        _, hidden_out = self.gru(padded_sessions, hidden)
+        output, _ = self.gru(input, hidden)   
+
+        hidden_indices = rep_indicies.view(-1,1,1).expand(output.size(0), 1, output.size(2))
+        hidden_out = torch.gather(output,1,hidden_indices)
+        hidden_out = hidden_out.squeeze()
+        hidden_out = hidden_out.unsqueeze(0)
         hidden_out = self.gru_dropout2(hidden_out)
         return hidden_out
 
@@ -175,8 +179,11 @@ def train_on_batch(xinput, targetvalues, sl, session_reps, sr_sl, user_list):
     X, Y, S = process_batch(xinput, targetvalues, session_reps, sr_sl)
 
     #get initial hidden state of inter gru layer and call forward on the module
-    inter_hidden = inter_rnn.init_hidden(BATCHSIZE)
-    hidden = inter_rnn(S, inter_hidden, sr_sl)
+    rep_indicies = Variable(torch.LongTensor(sr_sl)) - 1
+    if(USE_CUDA):
+        rep_indicies = rep_indicies.cuda()
+    inter_hidden = inter_rnn.init_hidden(S.size(0))
+    hidden = inter_rnn(S, inter_hidden, rep_indicies)
 
     #get embeddings
     embedded_X = embed(X)
@@ -223,8 +230,12 @@ def train_on_batch(xinput, targetvalues, sl, session_reps, sr_sl, user_list):
 
 def predict_on_batch(xinput, targetvalues, sl, session_reps, sr_sl, user_list):
     X, Y, S = process_batch(xinput, targetvalues, session_reps, sr_sl)
-    inter_hidden = inter_rnn.init_hidden(BATCHSIZE)
-    hidden = inter_rnn(S, inter_hidden, sr_sl)
+
+    rep_indicies = Variable(torch.LongTensor(sr_sl)) - 1
+    if(USE_CUDA):
+        rep_indicies = rep_indicies.cuda()
+    inter_hidden = inter_rnn.init_hidden(S.size(0))
+    hidden = inter_rnn(S, inter_hidden, rep_indicies)
     #get embeddings
     embedded_X = embed(X)
     lengths = Variable(torch.FloatTensor(sl).view(-1,1))
@@ -300,7 +311,6 @@ while epoch_nr < MAX_EPOCHS:
 
         #run predictions on test batch
         k_predictions = predict_on_batch(xinput, targetvalues, sl, session_reps, sr_sl, user_list)
-        k_predictions = k_predictions.view(BATCHSIZE, SEQLEN, TOP_K)
 
         #evaluate results
         tester.evaluate_batch(k_predictions, targetvalues, sl)

@@ -112,11 +112,6 @@ class PlainRNNDataHandler:
         session_batch = [[event[1] for event in session] for session in session_batch]
         x = [session[:-1] for session in session_batch]
         y = [session[1:] for session in session_batch]
-        if len(x) < self.batch_size:
-            for i in range(self.batch_size-len(x)):
-                x.append([0]*len(x[0]))
-                y.append([0]*len(y[0]))
-                session_lengths.append(0)
         return x, y, session_lengths
 
     def get_next_train_batch(self):

@@ -134,7 +134,7 @@ def train_on_batch(xinput, targetvalues, sl):
     X, Y = process_batch(xinput, targetvalues)
 
     #get initial hidden state of gru layer and call forward on the module
-    hidden = rnn.init_hidden(BATCHSIZE)
+    hidden = rnn.init_hidden(X.size(0))
     output, _ = rnn(X, hidden)
 
     #prepare tensors for loss evaluation
@@ -163,7 +163,7 @@ def train_on_batch(xinput, targetvalues, sl):
 
 def predict_on_batch(xinput, targetvalues, sl):
     X, Y = process_batch(xinput, targetvalues)
-    hidden = rnn.init_hidden(BATCHSIZE)
+    hidden = rnn.init_hidden(X.size(0))
     output, _ = rnn(X, hidden)
     k_values, k_predictions = torch.topk(output, TOP_K)
     return k_predictions
@@ -221,8 +221,7 @@ while epoch_nr < MAX_EPOCHS:
 
         #run predictions on test batch
         k_predictions = predict_on_batch(xinput, targetvalues, sl)
-        k_predictions = k_predictions.view(BATCHSIZE, SEQLEN, TOP_K)
-
+        
         #evaluate results
         tester.evaluate_batch(k_predictions, targetvalues, sl)
 
