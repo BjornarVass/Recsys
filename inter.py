@@ -20,7 +20,7 @@ lastfm = "lastfm"
 
 #set current dataset here
 dataset = lastfm
-use_hidden = False
+use_hidden = True
 dataset_path = "datasets/" + dataset + "/4_train_test_split.pickle"
 
 #universal settings
@@ -106,14 +106,18 @@ class Intra_RNN(nn.Module):
         self.gru_dropout2 = nn.Dropout(dropout_rate)
         self.linear = nn.Linear(hidden_size, output_size)
     
-    def forward(self, input, hidden):
+    def forward(self, input, hidden, lengths):
         input = self.gru_dropout1(input)
-        out, hidden = self.gru(input, hidden)
+        out, h = self.gru(input, hidden)
         
-        out = self.gru_dropout2(out)
-        out = self.linear(out)
+        output = self.gru_dropout2(out)
+        output = self.linear(output)
+        hidden_indices = lengths.view(-1,1,1).expand(out.size(0), 1, out.size(2))
+        hidden_out = torch.gather(out,1,hidden_indices)
+        hidden_out = hidden_out.squeeze()
+        hidden_out = hidden_out.unsqueeze(0)
         
-        return out, hidden
+        return output, hidden_out
 
 
 #setting up embedding matrix, network and optimizer
@@ -185,7 +189,8 @@ def train_on_batch(xinput, targetvalues, sl, session_reps, sr_sl, user_list):
     mean_X = sum_X.div(lengths)
 
     #call forward on intra gru layer with hidden state from inter
-    output, hidden_out = intra_rnn(embedded_X, hidden)
+    lengths = lengths.long() - 1  #length to indices
+    output, hidden_out = intra_rnn(embedded_X, hidden, lengths)
 
     if(use_hidden):
         datahandler.store_user_session_representations(hidden_out.data[0], user_list)
@@ -230,7 +235,8 @@ def predict_on_batch(xinput, targetvalues, sl, session_reps, sr_sl, user_list):
     sum_X = embedded_X.sum(1)
     mean_X = sum_X.div(lengths)
 
-    output, hidden_out = intra_rnn(embedded_X, hidden)
+    lengths = lengths.long() - 1
+    output, hidden_out = intra_rnn(embedded_X, hidden, lengths)
 
     if(use_hidden):
         datahandler.store_user_session_representations(hidden_out.data[0], user_list)

@@ -142,18 +142,21 @@ class IIRNNDataHandler:
         session_batch = [[event[1] for event in session] for session in session_batch]
         x = [session[:-1] for session in session_batch]
         y = [session[1:] for session in session_batch]
+        user_list = list(user_list)
         if len(x) < self.batch_size:
             for i in range(self.batch_size-len(x)):
                 x.append([0]*len(x[0]))
                 y.append([0]*len(y[0]))
-                session_lengths.append(0)
+                session_lengths.append(1)
                 sess_rep_batch.append([[0]*self.LT_INTERNALSIZE]*self.MAX_SESSION_REPRESENTATIONS)
                 sess_rep_lengths.append(1)
-        sess_rep_lengths, sess_rep_batch, x, y = zip(*sorted(zip(sess_rep_lengths, sess_rep_batch, x, y), key=lambda x: x[0], reverse=True))
+                user_list.append(-1)
+        sess_rep_lengths, sess_rep_batch, x, y, user_list, session_lengths = zip(*sorted(zip(sess_rep_lengths, sess_rep_batch, x, y, user_list, session_lengths), key=lambda x: x[0], reverse=True))
         sess_rep_lengths = list(sess_rep_lengths)
         sess_rep_batch = list(sess_rep_batch)
         x = list(x)
         y = list(y)
+        user_list = list(user_list)
         return x, y, session_lengths, sess_rep_batch, sess_rep_lengths, user_list, sess_time_vectors
 
     def get_next_train_batch(self):
@@ -191,14 +194,15 @@ class IIRNNDataHandler:
     def store_user_session_representations(self, sessions_representations, user_list):
         for i in range(len(user_list)):
             user = user_list[i]
-            session_representation = list(sessions_representations[i])
+            if(user != -1):
+                session_representation = list(sessions_representations[i])
 
-            num_reps = self.num_user_session_representations[user]
-            
+                num_reps = self.num_user_session_representations[user]
+                
 
-            #self.num_user_session_representations[user] = min(self.MAX_SESSION_REPRESENTATIONS, num_reps+1)
-            if(num_reps == 0):
-                self.user_session_representations[user].pop() #pop the sucker
-            self.user_session_representations[user].append(session_representation)
-            self.num_user_session_representations[user] = min(self.MAX_SESSION_REPRESENTATIONS, num_reps+1)
+                #self.num_user_session_representations[user] = min(self.MAX_SESSION_REPRESENTATIONS, num_reps+1)
+                if(num_reps == 0):
+                    self.user_session_representations[user].pop() #pop the sucker
+                self.user_session_representations[user].append(session_representation)
+                self.num_user_session_representations[user] = min(self.MAX_SESSION_REPRESENTATIONS, num_reps+1)
 
