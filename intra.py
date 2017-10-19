@@ -14,7 +14,7 @@ reddit = "subreddit"
 lastfm = "lastfm"
 
 #set current dataset here
-dataset = lastfm
+dataset = reddit
 dataset_path = "datasets/" + dataset + "/4_train_test_split.pickle"
 
 #universal settings
@@ -184,6 +184,7 @@ while epoch_nr < MAX_EPOCHS:
     datahandler.reset_user_batch_data()
     xinput, targetvalues, sl = datahandler.get_next_train_batch()
     batch_nr = 0
+    rnn.train()
     while(len(xinput) > int(BATCHSIZE/2)): #TODO: CHECK IF THIS IS THE REASON FOR THE BAD RESULTS, OR IF THE REDUCED DATASET WAS. COULD BE A COMBINATION (A FEW USERS WITH VERY MANY SESSIONS/UNBALANCED)
       	#batch training
         batch_start_time = time.time()
@@ -214,6 +215,7 @@ while epoch_nr < MAX_EPOCHS:
     datahandler.reset_user_batch_data()
     xinput, targetvalues, sl = datahandler.get_next_test_batch()
     batch_nr = 0
+    rnn.eval()
     while(len(xinput) > int(BATCHSIZE/2)):
     	#batch testing
         batch_nr += 1
@@ -221,7 +223,7 @@ while epoch_nr < MAX_EPOCHS:
 
         #run predictions on test batch
         k_predictions = predict_on_batch(xinput, targetvalues, sl)
-        
+
         #evaluate results
         tester.evaluate_batch(k_predictions, targetvalues, sl)
 

@@ -20,7 +20,7 @@ lastfm = "lastfm"
 
 #set current dataset here
 dataset = lastfm
-use_hidden = True
+use_hidden = False
 dataset_path = "datasets/" + dataset + "/4_train_test_split.pickle"
 
 #universal settings
@@ -274,6 +274,8 @@ while epoch_nr < MAX_EPOCHS:
     datahandler.reset_user_session_representations()
     xinput, targetvalues, sl, session_reps, sr_sl, user_list, _ = datahandler.get_next_train_batch()
     batch_nr = 0
+    intra_rnn.train()
+    inter_rnn.train()
     while(len(xinput) > int(BATCHSIZE/2)): #Why is the stopping condition this?
       	#batch training
         batch_start_time = time.time()
@@ -304,6 +306,8 @@ while epoch_nr < MAX_EPOCHS:
     datahandler.reset_user_batch_data()
     xinput, targetvalues, sl, session_reps, sr_sl, user_list, _ = datahandler.get_next_test_batch()
     batch_nr = 0
+    intra_rnn.eval()
+    inter_rnn.eval()
     while(len(xinput) > int(BATCHSIZE/2)):
     	#batch testing
         batch_nr += 1
