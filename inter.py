@@ -13,13 +13,16 @@ import torch.nn as nn
 import torch.nn.functional as F
 
 from torch.autograd import Variable
+from logger import Logger
 
 #datasets
 reddit = "subreddit"
 lastfm = "lastfm"
+lastfm2 = "lastfm2"
+lastfm3 = "lastfm3"
 
 #set current dataset here
-dataset = lastfm
+dataset = reddit
 use_hidden = False
 dataset_path = "datasets/" + dataset + "/4_train_test_split.pickle"
 
@@ -30,10 +33,12 @@ SEQLEN = 20-1
 TOP_K = 20
 MAX_SESSION_REPRESENTATIONS = 15
 
+log_name = "inter_reddit_avg3"
+
 #gpu settings
 USE_CUDA = True
 USE_CUDA_EMBED = True
-GPU = 1 #currently not used
+GPU = 1
 
 #dataset dependent settings
 if dataset == reddit:
@@ -41,17 +46,17 @@ if dataset == reddit:
     lr = 0.001
     dropout = 0.0
     MAX_EPOCHS = 31
-elif dataset == lastfm:
+elif dataset == lastfm or dataset == lastfm3 or dataset == lastfm2:
     HIDDEN_SIZE = 100
     lr = 0.001
-    dropout = 0.2 # approximate equal to 2 dropouts of 0.2 TODO: Not really, look at this
-    MAX_EPOCHS = 50
+    dropout = 0.2
+    MAX_EPOCHS = 30
 
 EMBEDDING_SIZE = HIDDEN_SIZE
 INTER_HIDDEN = HIDDEN_SIZE
 
 #setting of seed
-torch.manual_seed(0) #seed CPU
+torch.manual_seed(3) #seed CPU
 
 #loading of dataset into datahandler and getting relevant iformation about the dataset
 datahandler = IIRNNDataHandler(dataset_path, BATCHSIZE, MAX_SESSION_REPRESENTATIONS, INTER_HIDDEN)
@@ -95,7 +100,7 @@ class Inter_RNN(nn.Module):
     def init_hidden(self, batch_size):
         hidden = Variable(torch.zeros(1, batch_size, self.hidden_size))
         if USE_CUDA:
-            hidden = hidden.cuda()
+            hidden = hidden.cuda(GPU)
         return hidden
 
 #intra session RNN module
@@ -127,19 +132,19 @@ class Intra_RNN(nn.Module):
 #setting up embedding matrix, network and optimizer
 embed = Embed(N_ITEMS, EMBEDDING_SIZE)
 if(USE_CUDA_EMBED):
-    embed = embed.cuda()
+    embed = embed.cuda(GPU)
 embed_optimizer = torch.optim.Adam(embed.parameters(), lr=lr)
 
 #models
 inter_rnn = Inter_RNN(HIDDEN_SIZE, dropout)
 if(USE_CUDA):
-    inter_rnn = inter_rnn.cuda()
+    inter_rnn = inter_rnn.cuda(GPU)
 inter_optimizer = torch.optim.Adam(inter_rnn.parameters(), lr=lr)
 
 
 intra_rnn = Intra_RNN(EMBEDDING_SIZE, HIDDEN_SIZE, N_ITEMS, dropout)
 if USE_CUDA:
-    intra_rnn = intra_rnn.cuda()
+    intra_rnn = intra_rnn.cuda(GPU)
 intra_optimizer = torch.optim.Adam(intra_rnn.parameters(), lr=lr)
 
 #library option that does not allow us to mask away 0-paddings and returns a mean by default
@@ -162,10 +167,10 @@ def process_batch(xinput, targetvalues, session_reps, sr_sl):
     sessions = torch.FloatTensor(session_reps)
     sessions = Variable(sessions)
     if(USE_CUDA_EMBED):
-        training_batch = training_batch.cuda()
+        training_batch = training_batch.cuda(GPU)
     if(USE_CUDA):
-        targets = targets.cuda()
-        sessions = sessions.cuda()
+        targets = targets.cuda(GPU)
+        sessions = sessions.cuda(GPU)
 
     return training_batch, targets, sessions
 
@@ -181,7 +186,7 @@ def train_on_batch(xinput, targetvalues, sl, session_reps, sr_sl, user_list):
     #get initial hidden state of inter gru layer and call forward on the module
     rep_indicies = Variable(torch.LongTensor(sr_sl)) - 1
     if(USE_CUDA):
-        rep_indicies = rep_indicies.cuda()
+        rep_indicies = rep_indicies.cuda(GPU)
     inter_hidden = inter_rnn.init_hidden(S.size(0))
     hidden = inter_rnn(S, inter_hidden, rep_indicies)
 
@@ -189,9 +194,9 @@ def train_on_batch(xinput, targetvalues, sl, session_reps, sr_sl, user_list):
     embedded_X = embed(X)
     lengths = Variable(torch.FloatTensor(sl).view(-1,1)) #by reshaping the length to this, it can be broadcasted and used for division
     if(USE_CUDA):
-        lengths = lengths.cuda()
+        lengths = lengths.cuda(GPU)
         if(not USE_CUDA_EMBED):
-            embedded_X = embedded_X.cuda()
+            embedded_X = embedded_X.cuda(GPU)
     sum_X = embedded_X.sum(1)
     mean_X = sum_X.div(lengths)
 
@@ -216,7 +221,7 @@ def train_on_batch(xinput, targetvalues, sl, session_reps, sr_sl, user_list):
     divident = Variable(torch.FloatTensor(1))
     divident[0] = sum(sl)
     if(USE_CUDA):
-        divident = divident.cuda()
+        divident = divident.cuda(GPU)
     mean_loss = reshaped_loss.mean(0)#sum_loss/divident
 
     #calculate gradients
@@ -233,16 +238,16 @@ def predict_on_batch(xinput, targetvalues, sl, session_reps, sr_sl, user_list):
 
     rep_indicies = Variable(torch.LongTensor(sr_sl)) - 1
     if(USE_CUDA):
-        rep_indicies = rep_indicies.cuda()
+        rep_indicies = rep_indicies.cuda(GPU)
     inter_hidden = inter_rnn.init_hidden(S.size(0))
     hidden = inter_rnn(S, inter_hidden, rep_indicies)
     #get embeddings
     embedded_X = embed(X)
     lengths = Variable(torch.FloatTensor(sl).view(-1,1))
     if(USE_CUDA):
-        lengths = lengths.cuda()
+        lengths = lengths.cuda(GPU)
         if(not USE_CUDA_EMBED):
-            embedded_X = embedded_X.cuda()
+            embedded_X = embedded_X.cuda(GPU)
     sum_X = embedded_X.sum(1)
     mean_X = sum_X.div(lengths)
 
@@ -265,6 +270,10 @@ num_training_batches = datahandler.get_num_training_batches()
 num_test_batches = datahandler.get_num_test_batches()
 epoch_loss = 0
 #epoch loop
+
+#tensorboard logger
+logger = Logger('./tensorboard/'+log_name)
+
 while epoch_nr < MAX_EPOCHS:
     print("Starting epoch #" + str(epoch_nr))
     start_time_epoch = time.time()
@@ -338,3 +347,10 @@ while epoch_nr < MAX_EPOCHS:
     print("Epoch #" + str(epoch_nr) + " Time: " + str(time.time()-start_time_epoch))
     epoch_nr += 1
     epoch_loss = 0
+
+    info = {
+        "recall@5": current_recall5,
+        "recall@20": current_recall20
+    }
+    for tag, value in info.items():
+        logger.scalar_summary(tag, value, epoch_nr)
