@@ -18,12 +18,12 @@ from logger import Logger
 #datasets
 reddit = "subreddit"
 lastfm = "lastfm"
-lastfm2 = "lastfm2"
 lastfm3 = "lastfm3"
 
 #set current dataset here
 dataset = lastfm3
-use_hidden = False
+use_hidden = True
+timeless = False
 dataset_path = "datasets/" + dataset + "/4_train_test_split.pickle"
 
 #universal settings
@@ -41,7 +41,7 @@ ALPHA = 1.0
 BETA = 0.05
 USE_DAY = True
 
-log_name = "lstm_hiddens20_120_avg_reluhidden2"
+log_name = "lstm_hiddens20_120_timeless4"
 
 #gpu settings
 USE_CUDA = True
@@ -54,14 +54,16 @@ if dataset == reddit:
     EMBEDDING_SIZE = 50
     lr = 0.001
     dropout = 0.0
-    MAX_EPOCHS = 31
+    MAX_EPOCHS = 25
     min_time = 1.0
-elif dataset == lastfm or dataset == lastfm2 or dataset == lastfm3:
+    freeze = False
+elif dataset == lastfm or dataset == lastfm3:
     EMBEDDING_SIZE = 120
     lr = 0.001
     dropout = 0.2
-    MAX_EPOCHS = 23
+    MAX_EPOCHS = 25
     min_time = 0.5
+    freeze = True
 
 INTRA_HIDDEN = EMBEDDING_SIZE+TIME_HIDDEN+DAY_TIME_HIDDEN+USER_HIDDEN
 if(use_hidden):
@@ -80,7 +82,7 @@ print("ALPHA: " + str(ALPHA))
 print("BETA: " + str(BETA))
 
 #setting of seed
-torch.manual_seed(2) #seed CPU
+torch.manual_seed(4) #seed CPU
 
 #loading of dataset into datahandler and getting relevant iformation about the dataset
 datahandler = RNNDataHandler(dataset_path, BATCHSIZE, MAX_SESSION_REPRESENTATIONS, REP_SIZE, TIME_RESOLUTION)
@@ -493,40 +495,43 @@ train_time = True
 train_first = True
 train_all = True
 
+#training loop
 while epoch_nr < MAX_EPOCHS:
-    """
-    if(epoch_nr == 0):
-        ALPHA = 0.0
-        BETA = 0.0
-    if(epoch_nr == 5):
-        BETA = 1.0
-    if(epoch_nr == 7):
-        BETA = 0.3
-    if(epoch_nr == 21):
-        train_all = False
-        BETA = 1.0
-    """
-    if(epoch_nr == 4):
-        ALPHA = 0.0
-        BETA = 0.0
-    if(epoch_nr == 8):
-        BETA = 1.0
-    if(epoch_nr == 10):
-        ALPHA = 0.5
-    if(epoch_nr == 11):
-        BETA = 0.0
-    if(epoch_nr == 12):
-        ALPHA = 0.5
-        BETA = 0.3
-    if(epoch_nr == 18):
-        train_all = False
-        train_first = False
-        ALPHA = 1.0
-    if(epoch_nr == 21):
-        train_first = True
-        train_time = False
-        ALPHA = 0.0
-        BETA = 1.0
+    #Training scheduler:
+    if(timeless):
+        if(epoch_nr == 0):
+            ALPHA = 0.0
+            BETA = 0.0
+        if(epoch_nr == 5):
+            BETA = 1.0
+        if(epoch_nr == 7):
+            BETA = 0.3
+        if(epoch_nr == 21):
+            train_all = False
+            BETA = 1.0
+    else:
+        if(epoch_nr == 4):
+            ALPHA = 0.0
+            BETA = 0.0
+        if(epoch_nr == 8):
+            BETA = 1.0
+        if(epoch_nr == 10):
+            ALPHA = 0.5
+        if(epoch_nr == 11):
+            BETA = 0.0
+        if(epoch_nr == 12):
+            ALPHA = 0.5
+            BETA = 0.3
+        if(freeze):
+            if(epoch_nr == 21):
+                train_all = False
+                train_first = False
+                ALPHA = 1.0
+            if(epoch_nr == 24):
+                train_first = True
+                train_time = False
+                ALPHA = 0.0
+                BETA = 1.0
     print("Starting epoch #" + str(epoch_nr))
     start_time_epoch = time.time()
 
@@ -560,10 +565,12 @@ while epoch_nr < MAX_EPOCHS:
             print("w: weight: " + str(w.data.cpu().numpy()) + " grad: " + str(w.grad.data.cpu().numpy()))
             #print("a: weights: " + str(sorted(list(zip(times.data.cpu().numpy(),time_targets)))))
             #print(time_linear.weight.grad.data.cpu().numpy())
+            """
             for tag, value in time_linear.named_parameters():
                 tag = tag.replace('.', '/')
                 logger.histo_summary(tag, value.data.cpu().numpy(), epoch_nr*5+batch_nr%300)
                 logger.histo_summary(tag+'/grad', value.grad.data.cpu().numpy(), epoch_nr*5+batch_nr%300)
+            """
 
         batch_nr += 1
     #finished training in epoch
@@ -577,8 +584,8 @@ while epoch_nr < MAX_EPOCHS:
     datahandler.reset_user_batch_data()
     xinput, targetvalues, sl, session_reps, sr_sl, user_list, sess_time_reps, sess_day_time_reps, time_targets, first_predictions, timestamps = datahandler.get_next_test_batch()
     batch_nr = 0
-    if( epoch_nr != 0 and epoch_nr%11 == 0):
-        time_error = True
+    if( epoch_nr != 0 and epoch_nr%12 == 0):
+        time_error = True #TODO
     else:
         time_error = False
     intra_rnn.eval()
