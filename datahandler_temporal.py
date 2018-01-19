@@ -10,7 +10,7 @@ from datetime import datetime
 
 class RNNDataHandler:
     
-    def __init__(self, dataset_path, batch_size, max_sess_reps, lt_internalsize, time_resolution):
+    def __init__(self, dataset_path, batch_size, max_sess_reps, lt_internalsize, time_resolution, use_day, min_time):
         # LOAD DATASET
         self.dataset_path = dataset_path
         self.batch_size = batch_size
@@ -35,8 +35,9 @@ class RNNDataHandler:
     
         # batch control
         self.time_resolution = time_resolution
-        self.use_day = True
+        self.use_day = use_day
         self.time_factor = 24 if self.use_day else 1
+        self.min_time = min_time/self.time_factor
         self.divident = 3600*self.time_factor
         self.init_user_times()
         self.reset_user_batch_data()
@@ -46,7 +47,6 @@ class RNNDataHandler:
         self.user_train_times = [None]*self.num_users
         self.user_test_times = [None]*self.num_users
         self.max_time = 500/self.time_factor
-        self.min_time = 0.5/self.time_factor
         self.max_exp = 50
         self.scale = 1#np.log(self.max_exp+1)
         self.delta = self.scale/self.time_resolution

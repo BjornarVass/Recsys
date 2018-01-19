@@ -2,16 +2,21 @@
 The code for my specialization project
 
 # Requirements
-Python 3
-PyTorch, with CUDA support
-Pickle
-Numpy
+Python 3  
+PyTorch, with CUDA support  
+Pickle  
+Numpy  
+
+Tensorboard requirements(optional):
+Tensorflow  
+Torchvision  
+Scipy  
 
 # Data
 
 ## Datasets
 
-LastFM:http://www.dtic.upf.edu/~ocelma/MusicRecommendationDataset/lastfm-1K.html
+LastFM:http://www.dtic.upf.edu/~ocelma/MusicRecommendationDataset/lastfm-1K.html  
 Reddit:https://www.kaggle.com/colemaclean/subreddit-interactions
 
 All models expect the preprocessed data to be found in predefined paths e.g. datasets/lastfm/, but these can easily be switched out. 
@@ -27,13 +32,22 @@ preprocess_trimmed.py is specifically tuned for the LastFM dataset, and extracts
 
 # Running of code
 
-## Files
-inter.py: Recommendation baseline
-temporal_user.py: Proposed model without use of day-time embedding
-temporal_daytime.py: Proposed model with use of day-time embedding
+## Running
+For simple runs that are bound to the terminal window, simply call: python [filename]  
+If both python 2.x and python 3.x is available in your environment, you might have to replace "python" with "python3"
 
-## inter.py
-Set the dataset by commenting out the one to be used in the top of the file, and redefine paths if necessary. Hyper-parameters are all defined in the top of the file and can be tuned for different experiments. The session-representation scheme is selected by setting the "use_hidden" variable to True if the use of the last hidden state as session representations is wanted, or False if the average embedding pooling representation is wanted.
+An easy way to decouple the running script from the terminal window and write to a logfile, can be achieved by: python -u [filename] &> [logfile] &  
+The "-u" flag is used to make the scripts write to the file in "real-time", "&>" pipes stdout and stderr(for potential debugging) and the last "&" decouples the terminal  
+The logfile in question will contain the full result tables for each epoch as well as some progress prints.
+
+## Files
+inter.py: Recommendation baseline  
+inter_context.py: Recommendation baseline extended with time-gap and user context  
+temporal_user.py: Proposed model without use of day-time embedding  
+temporal_daytime.py: Proposed model with use of day-time embedding  
+
+## inter.py and inter_context.py
+Set the dataset by setting the "dataset" variable, and redefine paths if necessary. Hyper-parameters are all defined in the top of the file and can be tuned for different experiments. The session-representation scheme is selected by setting the "use_hidden" variable to True if the use of the last hidden state as session representations is wanted, or False if the average embedding pooling representation is wanted.
 
 ## temporal_ files
 Same as for the baseline when it comes to datasets and hyper-parameters and session-representation scheme. These setups have quite a few more hyper parameters that can be tweaked.
