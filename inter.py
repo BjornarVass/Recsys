@@ -13,7 +13,7 @@ import torch.nn as nn
 import torch.nn.functional as F
 
 from torch.autograd import Variable
-from logger import Logger
+#from logger import Logger
 
 #datasets
 reddit = "subreddit"
@@ -23,7 +23,7 @@ lastfm3 = "lastfm3"
 
 #set current dataset here
 dataset = reddit
-use_hidden = False
+use_hidden = True
 dataset_path = "datasets/" + dataset + "/4_train_test_split.pickle"
 
 #universal settings
@@ -33,16 +33,16 @@ SEQLEN = 20-1
 TOP_K = 20
 MAX_SESSION_REPRESENTATIONS = 15
 
-log_name = "inter_reddit_avg3"
+#log_name = "2018_inter1"
 
 #gpu settings
 USE_CUDA = True
 USE_CUDA_EMBED = True
-GPU = 1
+GPU = 0
 
 #dataset dependent settings
 if dataset == reddit:
-    HIDDEN_SIZE = 50
+    HIDDEN_SIZE = 70
     lr = 0.001
     dropout = 0.0
     MAX_EPOCHS = 31
@@ -56,7 +56,7 @@ EMBEDDING_SIZE = HIDDEN_SIZE
 INTER_HIDDEN = HIDDEN_SIZE
 
 #setting of seed
-torch.manual_seed(3) #seed CPU
+torch.manual_seed(0) #seed CPU
 
 #loading of dataset into datahandler and getting relevant iformation about the dataset
 datahandler = IIRNNDataHandler(dataset_path, BATCHSIZE, MAX_SESSION_REPRESENTATIONS, INTER_HIDDEN)
@@ -153,7 +153,7 @@ criterion = nn.CrossEntropyLoss()
 #CUSTOM CROSS ENTROPY LOSS(Replace as soon as pytorch has implemented an option for non-summed losses)
 #https://github.com/pytorch/pytorch/issues/264
 def masked_cross_entropy_loss(y_hat, y):
-    logp = -F.log_softmax(y_hat)
+    logp = -F.log_softmax(y_hat, dim=1)
     logpy = torch.gather(logp,1,y.view(-1,1))
     mask = Variable(y.data.float().sign().view(-1,1))
     logpy = logpy*mask
@@ -272,7 +272,7 @@ epoch_loss = 0
 #epoch loop
 
 #tensorboard logger
-logger = Logger('./tensorboard/'+log_name)
+#logger = Logger('./tensorboard/'+log_name)
 
 while epoch_nr < MAX_EPOCHS:
     print("Starting epoch #" + str(epoch_nr))
@@ -298,7 +298,7 @@ while epoch_nr < MAX_EPOCHS:
         xinput, targetvalues, sl, session_reps, sr_sl, user_list, _ = datahandler.get_next_train_batch()
 
         #print batch loss and ETA occationally
-        if batch_nr%1000 == 0:
+        if batch_nr%2000 == 0:
             print("Batch: " + str(batch_nr) + "/" + str(num_training_batches) + " loss: " + str(batch_loss))
             eta = (batch_runtime*(num_training_batches-batch_nr))/60
             eta = "%.2f" % eta
@@ -333,7 +333,7 @@ while epoch_nr < MAX_EPOCHS:
         batch_runtime = time.time() - batch_start_time
 
         #print progress and ETA occationally
-        if batch_nr%400 == 0:
+        if batch_nr%600 == 0:
             #print("Batch: " + str(batch_nr) + "/" + str(num_test_batches))
             eta = (batch_runtime*(num_test_batches-batch_nr))/60
             eta = "%.2f" % eta
@@ -348,9 +348,11 @@ while epoch_nr < MAX_EPOCHS:
     epoch_nr += 1
     epoch_loss = 0
 
+    """
     info = {
         "recall@5": current_recall5,
         "recall@20": current_recall20
     }
     for tag, value in info.items():
         logger.scalar_summary(tag, value, epoch_nr)
+    """

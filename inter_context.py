@@ -17,10 +17,11 @@ from torch.autograd import Variable
 #datasets
 reddit = "subreddit"
 lastfm = "lastfm"
-lastfm3 = "lastfm2"
+lastfm2 = "lastfm2"
+lastfm3 = "lastfm3"
 
 #set current dataset here
-dataset = lastfm
+dataset = lastfm2
 use_hidden = True
 dataset_path = "datasets/" + dataset + "/4_train_test_split.pickle"
 
@@ -38,7 +39,7 @@ USE_DAY = True
 #gpu settings
 USE_CUDA = True
 USE_CUDA_EMBED = True
-GPU = 0
+GPU = 1
 torch.cuda.set_device(GPU)
 
 #dataset dependent settings
@@ -46,14 +47,20 @@ if dataset == reddit:
     EMBEDDING_SIZE = 50
     lr = 0.001
     dropout = 0.2
-    MAX_EPOCHS = 20
+    MAX_EPOCHS = 30
     min_time = 1.0
-elif dataset == lastfm or dataset == lastfm3:
+elif dataset == lastfm or dataset == lastfm2:
     EMBEDDING_SIZE = 100
     lr = 0.001
     dropout = 0.2
-    MAX_EPOCHS = 15
+    MAX_EPOCHS = 25
     min_time = 0.5
+elif dataset == lastfm3:
+    EMBEDDING_SIZE = 100
+    lr = 0.001
+    dropout = 0.2
+    MAX_EPOCHS = 25
+    min_time = 4.0
 
 INTRA_HIDDEN = EMBEDDING_SIZE+TIME_HIDDEN+USER_HIDDEN
 if(use_hidden):
@@ -68,7 +75,7 @@ print("Hidden: " + str(INTRA_HIDDEN))
 print("Time hidden: " + str(TIME_HIDDEN))
 
 #setting of seed
-torch.manual_seed(4) #seed CPU
+torch.manual_seed(0) #seed CPU
 
 #loading of dataset into datahandler and getting relevant iformation about the dataset
 datahandler = RNNDataHandler(dataset_path, BATCHSIZE, MAX_SESSION_REPRESENTATIONS, REP_SIZE, TIME_RESOLUTION, USE_DAY, min_time)
@@ -115,7 +122,7 @@ class Inter_RNN(nn.Module):
         hidden_cat = hidden_cat.unsqueeze(0)
         hidden_cat = self.gru_dropout2(hidden_cat)
 
-        return F.relu(hidden_cat)
+        return hidden_cat
 
     def init_hidden(self, batch_size):
         hidden = Variable(torch.zeros(1, batch_size, self.cat_size))
@@ -188,7 +195,7 @@ criterion = nn.CrossEntropyLoss()
 #CUSTOM CROSS ENTROPY LOSS(Replace as soon as pytorch has implemented an option for non-summed losses)
 #https://github.com/pytorch/pytorch/issues/264
 def masked_cross_entropy_loss(y_hat, y):
-    logp = -F.log_softmax(y_hat)
+    logp = -F.log_softmax(y_hat, dim=1)
     logpy = torch.gather(logp,1,y.view(-1,1))
     mask = Variable(y.data.float().sign().view(-1,1))
     logpy = logpy*mask
@@ -394,8 +401,8 @@ while epoch_nr < MAX_EPOCHS:
     print("Epoch loss: " + str(epoch_loss/batch_nr))
     print("Starting testing")
 
-    #initialize trainer
-    tester = Tester()
+    #initialize trainerst
+    tester = Tester(seslen = SEQLEN)
 
     #reset state of datahandler and get first test batch
     datahandler.reset_user_batch_data()

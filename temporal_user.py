@@ -13,15 +13,16 @@ import torch.nn as nn
 import torch.nn.functional as F
 
 from torch.autograd import Variable
-from logger import Logger
+#from logger import Logger
 
 #datasets
 reddit = "subreddit"
 lastfm = "lastfm"
+lastfm2 = "lastfm2"
 lastfm3 = "lastfm3"
 
 #set current dataset here
-dataset = lastfm
+dataset = reddit
 use_hidden = True
 timeless = False
 dataset_path = "datasets/" + dataset + "/4_train_test_split.pickle"
@@ -39,28 +40,35 @@ ALPHA = 1.0
 BETA = 0.05
 USE_DAY = True
 
-log_name = "lstm_lastfm_frozenalpha0"
+#log_name = "2018_dayless1"
 
 #gpu settings
 USE_CUDA = True
 USE_CUDA_EMBED = True
-GPU = 0
+GPU = 1
 torch.cuda.set_device(GPU)
 
 #dataset dependent settings
 if dataset == reddit:
-    EMBEDDING_SIZE = 70
+    EMBEDDING_SIZE = 50
     lr = 0.001
     dropout = 0.2
-    MAX_EPOCHS = 25
+    MAX_EPOCHS = 29
     min_time = 1.0
     freeze = False
-elif dataset == lastfm or dataset == lastfm3:
-    EMBEDDING_SIZE = 120
+elif dataset == lastfm or dataset == lastfm2:
+    EMBEDDING_SIZE = 100
     lr = 0.001
     dropout = 0.2
     MAX_EPOCHS = 25
     min_time = 0.5
+    freeze = False
+elif dataset == lastfm3:
+    EMBEDDING_SIZE = 120
+    lr = 0.001
+    dropout = 0.2
+    MAX_EPOCHS = 25
+    min_time = 4.0
     freeze = True
 
 INTRA_HIDDEN = EMBEDDING_SIZE+TIME_HIDDEN+USER_HIDDEN
@@ -78,10 +86,10 @@ print("ALPHA: " + str(ALPHA))
 print("BETA: " + str(BETA))
 
 #setting of seed
-torch.manual_seed(0) #seed CPU
+torch.manual_seed(1) #seed CPU
 
 #loading of dataset into datahandler and getting relevant iformation about the dataset
-datahandler = RNNDataHandler(dataset_path, BATCHSIZE, MAX_SESSION_REPRESENTATIONS, REP_SIZE, TIME_RESOLUTION)
+datahandler = RNNDataHandler(dataset_path, BATCHSIZE, MAX_SESSION_REPRESENTATIONS, REP_SIZE, TIME_RESOLUTION, USE_DAY, min_time)
 N_ITEMS = datahandler.get_num_items()
 N_SESSIONS = datahandler.get_num_training_sessions()
 N_USERS = datahandler.get_num_users()
@@ -114,12 +122,12 @@ class Inter_RNN(nn.Module):
         
         self.cat_size = hidden_size
         self.gru_dropout1 = nn.Dropout(dropout_rate)
-        self.gru = nn.LSTM(self.cat_size, self.cat_size, batch_first=True)
+        self.gru = nn.GRU(self.cat_size, self.cat_size, batch_first=True)
         self.gru_dropout2 = nn.Dropout(dropout_rate)
     
     def forward(self, input, hidden, context, rep_indicies):
         input = self.gru_dropout1(input)
-        output, _ = self.gru(input, (hidden, context))
+        output, _ = self.gru(input, hidden)
 
         hidden_indices = rep_indicies.view(-1,1,1).expand(output.size(0), 1, output.size(2))
         hidden_cat = torch.gather(output,1,hidden_indices)
@@ -231,7 +239,7 @@ criterion = nn.CrossEntropyLoss()
 #CUSTOM CROSS ENTROPY LOSS(Replace as soon as pytorch has implemented an option for non-summed losses)
 #https://github.com/pytorch/pytorch/issues/264
 def masked_cross_entropy_loss(y_hat, y):
-    logp = -F.log_softmax(y_hat)
+    logp = -F.log_softmax(y_hat, dim=1)
     logpy = torch.gather(logp,1,y.view(-1,1))
     mask = Variable(y.data.float().sign().view(-1,1))
     logpy = logpy*mask
@@ -300,7 +308,7 @@ def process_batch(xinput, targetvalues, session_reps, sess_time_reps, first_Y):
     return training_batch, targets, sessions, sess_times, first
 
 def train_on_batch(xinput, targetvalues, sl, session_reps, sr_sl, user_list, sess_time_reps, time_targets, first_Y):
-	#zero gradients
+    #zero gradients
     inter_optimizer.zero_grad()
     session_embed_optimizer.zero_grad()
     time_embed_optimizer.zero_grad()
@@ -472,7 +480,7 @@ epoch_loss = 0
 #epoch loop
 
 #tensorboard logger
-logger = Logger('./tensorboard/'+log_name)
+#logger = Logger('./tensorboard/'+log_name)
 
 train_time = True
 train_first = True
@@ -522,12 +530,12 @@ while epoch_nr < MAX_EPOCHS:
     datahandler.reset_user_batch_data()
     datahandler.reset_user_session_representations()
     xinput, targetvalues, sl, session_reps, sr_sl, user_list, sess_time_reps, time_targets, first_predictions = datahandler.get_next_train_batch()
-    xinput, targetvalues, sl, session_reps, sr_sl, user_list, sess_time_reps, time_targets, first_predictions = datahandler.get_next_train_batch()
+    xinput, targetvalues, sl, session_reps, sr_sl, user_list, sess_time_reps, time_targets, first_predictions = datahandler.get_next_train_batch() #why twice?
     batch_nr = 0
     intra_rnn.train()
     inter_rnn.train()
     while(len(xinput) > int(BATCHSIZE/2)): #Why is the stopping condition this?
-      	#batch training
+        #batch training
         batch_start_time = time.time()
 
         #training call
@@ -545,7 +553,7 @@ while epoch_nr < MAX_EPOCHS:
             eta = "%.2f" % eta
             print(" | ETA:", eta, "minutes.")
             w = time_loss_func.get_w()
-            print("w: weight: " + str(w.data.cpu().numpy()) + " grad: " + str(w.grad.data.cpu().numpy()))
+            #print("w: weight: " + str(w.data.cpu().numpy()) + " grad: " + str(w.grad.data.cpu().numpy()))
             #print("a: weights: " + str(sorted(list(zip(times.data.cpu().numpy(),time_targets)))))
             #print(time_linear.weight.grad.data.cpu().numpy())
             """
@@ -561,7 +569,7 @@ while epoch_nr < MAX_EPOCHS:
     print("Starting testing")
 
     #initialize trainer
-    tester = Tester(use_day = USE_DAY, min_time = min_time)
+    tester = Tester(seqlen = SEQLEN, use_day = USE_DAY, min_time = min_time)
 
     #reset state of datahandler and get first test batch
     datahandler.reset_user_batch_data()
@@ -574,7 +582,7 @@ while epoch_nr < MAX_EPOCHS:
     intra_rnn.eval()
     inter_rnn.eval()
     while(len(xinput) > int(BATCHSIZE/2)):
-    	#batch testing
+        #batch testing
         batch_nr += 1
         batch_start_time = time.time()
 
@@ -608,6 +616,7 @@ while epoch_nr < MAX_EPOCHS:
     epoch_loss = 0
     integration_acc = torch.cuda.FloatTensor([0])
     integration_count = 0
+    """
     info = {
         "recall@5": current_recall5,
         "recall@20": current_recall20
@@ -617,3 +626,4 @@ while epoch_nr < MAX_EPOCHS:
 
     if(time_error):
         logger.scalar_summary("mae", time_output, epoch_nr)
+    """

@@ -13,12 +13,12 @@ import torch.nn as nn
 import torch.nn.functional as F
 
 from torch.autograd import Variable
-from logger import Logger
+#from logger import Logger
 
 #datasets
 reddit = "subreddit"
 lastfm = "lastfm"
-lastfm3 = "lastfm3"
+lastfm3 = "lastfm2"
 
 #set current dataset here
 dataset = lastfm3
@@ -41,7 +41,7 @@ ALPHA = 1.0
 BETA = 0.05
 USE_DAY = True
 
-log_name = "lstm_hiddens20_120_timeless4"
+#log_name = "2018_700daytime1"
 
 #gpu settings
 USE_CUDA = True
@@ -63,7 +63,7 @@ elif dataset == lastfm or dataset == lastfm3:
     dropout = 0.2
     MAX_EPOCHS = 25
     min_time = 0.5
-    freeze = True
+    freeze = False
 
 INTRA_HIDDEN = EMBEDDING_SIZE+TIME_HIDDEN+DAY_TIME_HIDDEN+USER_HIDDEN
 if(use_hidden):
@@ -82,10 +82,10 @@ print("ALPHA: " + str(ALPHA))
 print("BETA: " + str(BETA))
 
 #setting of seed
-torch.manual_seed(4) #seed CPU
+torch.manual_seed(1) #seed CPU
 
 #loading of dataset into datahandler and getting relevant iformation about the dataset
-datahandler = RNNDataHandler(dataset_path, BATCHSIZE, MAX_SESSION_REPRESENTATIONS, REP_SIZE, TIME_RESOLUTION)
+datahandler = RNNDataHandler(dataset_path, BATCHSIZE, MAX_SESSION_REPRESENTATIONS, REP_SIZE, TIME_RESOLUTION, USE_DAY, min_time)
 N_ITEMS = datahandler.get_num_items()
 N_SESSIONS = datahandler.get_num_training_sessions()
 N_USERS = datahandler.get_num_users()
@@ -241,7 +241,7 @@ criterion = nn.CrossEntropyLoss()
 #CUSTOM CROSS ENTROPY LOSS(Replace as soon as pytorch has implemented an option for non-summed losses)
 #https://github.com/pytorch/pytorch/issues/264
 def masked_cross_entropy_loss(y_hat, y):
-    logp = -F.log_softmax(y_hat)
+    logp = -F.log_softmax(y_hat, dim=1)
     logpy = torch.gather(logp,1,y.view(-1,1))
     mask = Variable(y.data.float().sign().view(-1,1))
     logpy = logpy*mask
@@ -313,7 +313,7 @@ def process_batch(xinput, targetvalues, session_reps, sess_time_reps, sess_day_t
     return training_batch, targets, sessions, sess_times, sess_day_times, first
 
 def train_on_batch(xinput, targetvalues, sl, session_reps, sr_sl, user_list, sess_time_reps, sess_day_time_reps, time_targets, first_Y, timestamps):
-	#zero gradients
+    #zero gradients
     inter_optimizer.zero_grad()
     session_embed_optimizer.zero_grad()
     time_embed_optimizer.zero_grad()
@@ -489,7 +489,7 @@ epoch_loss = 0
 #epoch loop
 
 #tensorboard logger
-logger = Logger('./tensorboard/'+log_name)
+#logger = Logger('./tensorboard/'+log_name)
 
 train_time = True
 train_first = True
@@ -539,12 +539,12 @@ while epoch_nr < MAX_EPOCHS:
     datahandler.reset_user_batch_data()
     datahandler.reset_user_session_representations()
     xinput, targetvalues, sl, session_reps, sr_sl, user_list, sess_time_reps, sess_day_time_reps, time_targets, first_predictions, timestamps = datahandler.get_next_train_batch()
-    xinput, targetvalues, sl, session_reps, sr_sl, user_list, sess_time_reps, sess_day_time_reps, time_targets, first_predictions, timestamps = datahandler.get_next_train_batch()
+    xinput, targetvalues, sl, session_reps, sr_sl, user_list, sess_time_reps, sess_day_time_reps, time_targets, first_predictions, timestamps = datahandler.get_next_train_batch() #why twice?
     batch_nr = 0
     intra_rnn.train()
     inter_rnn.train()
     while(len(xinput) > int(BATCHSIZE/2)): #Why is the stopping condition this?
-      	#batch training
+        #batch training
         batch_start_time = time.time()
 
         #training call
@@ -556,13 +556,13 @@ while epoch_nr < MAX_EPOCHS:
         xinput, targetvalues, sl, session_reps, sr_sl, user_list, sess_time_reps, sess_day_time_reps, time_targets, first_predictions, timestamps = datahandler.get_next_train_batch()
 
         #print batch loss and ETA occationally
-        if batch_nr%300 == 0:
+        if batch_nr%800 == 0:
             print("Batch: " + str(batch_nr) + "/" + str(num_training_batches) + " first loss: " + str(batch_first_loss) + " batch_loss: " + str(batch_loss) + " time loss: " + str(batch_time_loss))
             eta = (batch_runtime*(num_training_batches-batch_nr))/60
             eta = "%.2f" % eta
             print(" | ETA:", eta, "minutes.")
             w = time_loss_func.get_w()
-            print("w: weight: " + str(w.data.cpu().numpy()) + " grad: " + str(w.grad.data.cpu().numpy()))
+            #print("w: weight: " + str(w.data.cpu().numpy()) + " grad: " + str(w.grad.data.cpu().numpy()))
             #print("a: weights: " + str(sorted(list(zip(times.data.cpu().numpy(),time_targets)))))
             #print(time_linear.weight.grad.data.cpu().numpy())
             """
@@ -591,7 +591,7 @@ while epoch_nr < MAX_EPOCHS:
     intra_rnn.eval()
     inter_rnn.eval()
     while(len(xinput) > int(BATCHSIZE/2)):
-    	#batch testing
+        #batch testing
         batch_nr += 1
         batch_start_time = time.time()
 
@@ -606,7 +606,7 @@ while epoch_nr < MAX_EPOCHS:
         batch_runtime = time.time() - batch_start_time
 
         #print progress and ETA occationally
-        if batch_nr%100 == 0:
+        if batch_nr%300 == 0:
             print("Batch: " + str(batch_nr) + "/" + str(num_test_batches))
             eta = (batch_runtime*(num_test_batches-batch_nr))/60
             eta = "%.2f" % eta
@@ -625,6 +625,7 @@ while epoch_nr < MAX_EPOCHS:
     epoch_loss = 0
     integration_acc = torch.cuda.FloatTensor([0])
     integration_count = 0
+    """
     info = {
         "recall@5": current_recall5,
         "recall@20": current_recall20
@@ -634,3 +635,4 @@ while epoch_nr < MAX_EPOCHS:
 
     if(time_error):
         logger.scalar_summary("mae", time_output, epoch_nr)
+    """

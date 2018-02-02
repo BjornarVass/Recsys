@@ -73,6 +73,9 @@ class IIRNNDataHandler:
                         items[item] = True
         return items
 
+    def get_num_users(self):
+        return self.num_users
+
     def get_num_items(self):
         items = {}
         items = self.add_unique_items_to_dict(items, self.trainset)

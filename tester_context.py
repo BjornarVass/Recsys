@@ -1,14 +1,14 @@
 
 class Tester:
 
-    def __init__(self, k=[5, 10, 20]):
+    def __init__(self, k=[5, 10, 20], seslen = 19):
         self.k = k
-        self.session_length = 19
+        self.session_length = seslen
         self.n_decimals = 4
         self.initialize()
 
     def initialize(self):
-        self.i_count = [0]*19
+        self.i_count = [0]*self.session_length
         self.recall = [[0]*len(self.k) for i in range(self.session_length)]
         self.mrr = [[0]*len(self.k) for i in range(self.session_length)]
 

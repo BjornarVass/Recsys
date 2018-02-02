@@ -10,7 +10,7 @@ from datetime import datetime
 
 class RNNDataHandler:
     
-    def __init__(self, dataset_path, batch_size, max_sess_reps, lt_internalsize, time_resolution):
+    def __init__(self, dataset_path, batch_size, max_sess_reps, lt_internalsize, time_resolution, use_day, min_time):
         # LOAD DATASET
         self.dataset_path = dataset_path
         self.batch_size = batch_size
@@ -35,8 +35,9 @@ class RNNDataHandler:
     
         # batch control
         self.time_resolution = time_resolution
-        self.use_day = True
+        self.use_day = use_day
         self.time_factor = 24 if self.use_day else 1
+        self.min_time = min_time/self.time_factor
         self.divident = 3600*self.time_factor
         self.init_user_times()
         self.reset_user_batch_data()
@@ -46,7 +47,6 @@ class RNNDataHandler:
         self.user_train_times = [None]*self.num_users
         self.user_test_times = [None]*self.num_users
         self.max_time = 500/self.time_factor
-        self.min_time = 0.5/self.time_factor
         self.max_exp = 50
         self.scale = 1#np.log(self.max_exp+1)
         self.delta = self.scale/self.time_resolution
@@ -56,15 +56,21 @@ class RNNDataHandler:
             times.append(0)
             for session_index in range(1,len(v)):
                 gap = (self.trainset[k][session_index][0][0]-self.trainset[k][session_index-1][self.train_session_lengths[k][session_index-1]-1][0])/self.divident
-                times.append(gap if gap > self.min_time else 0)
+                gap = gap if gap > self.min_time else 0
+                #gap = gap if gap < self.max_time else -1
+                times.append(gap)
             self.user_train_times[k] = times
         for k, v in self.testset.items():
             times = []
             gap = (self.testset[k][0][0][0]-self.trainset[k][-1][self.train_session_lengths[k][-1]-1][0])/self.divident
-            times.append(gap if gap > self.min_time else 0)
+            gap = gap if gap > self.min_time else 0
+            #gap = gap if gap < self.max_time else -1
+            times.append(gap)
             for session_index in range(1,len(v)):
                 gap = (self.testset[k][session_index][0][0]-self.testset[k][session_index-1][self.test_session_lengths[k][session_index-1]-1][0])/self.divident
-                times.append(gap if gap > self.min_time else 0)
+                gap = gap if gap > self.min_time else 0
+                #gap = gap if gap < self.max_time else -1
+                times.append(gap)
             self.user_test_times[k] = times
 
     # call before training and testing
@@ -234,15 +240,14 @@ class RNNDataHandler:
             user = user_list[i]
             session_representation = list(sessions_representations[i])
             target_time = float(target_times[i])
-            if(target_time > self.min_time):
-                #if(target_time > self.max_time):
-                #    target_time = 0
+            if(target_time < 0):
+                target_time = 1/self.scale
+                target_time = int(target_time//self.delta)
+            else:
                 target_time = min(target_time, self.max_time)/self.max_time
                 #target_time = np.log(target_time*(self.max_exp)+1)
                 target_time = target_time/self.scale
                 target_time = int(target_time//self.delta)
-            else:
-                target_time = 0
 
             timestamp = timestamps[i]
             time_obj = datetime.utcfromtimestamp(timestamp)
