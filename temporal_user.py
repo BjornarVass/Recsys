@@ -22,10 +22,10 @@ lastfm2 = "lastfm2"
 lastfm3 = "lastfm3"
 
 #set current dataset here
-dataset = reddit
+dataset = lastfm
 use_hidden = True
 timeless = False
-dataset_path = "datasets/" + dataset + "/4_train_test_split.pickle"
+dataset_path = "datasets/" + dataset + "/5_train_test_split.pickle"
 
 #universal settings
 BATCHSIZE = 100
@@ -45,8 +45,10 @@ USE_DAY = True
 #gpu settings
 USE_CUDA = True
 USE_CUDA_EMBED = True
+SEED = 1
 GPU = 1
 torch.cuda.set_device(GPU)
+model_info = "user_dimred_std_" + dataset + str(SEED)
 
 #dataset dependent settings
 if dataset == reddit:
@@ -71,7 +73,7 @@ elif dataset == lastfm3:
     min_time = 4.0
     freeze = True
 
-INTRA_HIDDEN = EMBEDDING_SIZE+TIME_HIDDEN+USER_HIDDEN
+INTRA_HIDDEN = EMBEDDING_SIZE
 if(use_hidden):
     INTER_HIDDEN = INTRA_HIDDEN+TIME_HIDDEN+USER_HIDDEN
     REP_SIZE = INTRA_HIDDEN
@@ -86,7 +88,7 @@ print("ALPHA: " + str(ALPHA))
 print("BETA: " + str(BETA))
 
 #setting of seed
-torch.manual_seed(1) #seed CPU
+torch.manual_seed(SEED) #seed CPU
 
 #loading of dataset into datahandler and getting relevant iformation about the dataset
 datahandler = RNNDataHandler(dataset_path, BATCHSIZE, MAX_SESSION_REPRESENTATIONS, REP_SIZE, TIME_RESOLUTION, USE_DAY, min_time)
@@ -566,64 +568,66 @@ while epoch_nr < MAX_EPOCHS:
         batch_nr += 1
     #finished training in epoch
     print("Epoch loss: " + str(epoch_loss/batch_nr))
-    print("Starting testing")
+    if(epoch_nr > 0 and (epoch_nr%6 == 0 or epoch_nr == MAX_EPOCHS-1)):
+        print("Starting testing")
 
-    #initialize trainer
-    tester = Tester(seqlen = SEQLEN, use_day = USE_DAY, min_time = min_time)
+        #initialize trainer
+        tester = Tester(seqlen = SEQLEN, use_day = USE_DAY, min_time = min_time, model_info = model_info)
 
-    #reset state of datahandler and get first test batch
-    datahandler.reset_user_batch_data()
-    xinput, targetvalues, sl, session_reps, sr_sl, user_list, sess_time_reps, time_targets, first_predictions = datahandler.get_next_test_batch()
-    batch_nr = 0
-    if( epoch_nr != 0 and epoch_nr%12 == 0):
-        time_error = True
-    else:
-        time_error = False
-    intra_rnn.eval()
-    inter_rnn.eval()
-    while(len(xinput) > int(BATCHSIZE/2)):
-        #batch testing
-        batch_nr += 1
-        batch_start_time = time.time()
-
-        #run predictions on test batch
-        k_predictions = predict_on_batch(xinput, targetvalues, sl, session_reps, sr_sl, user_list, sess_time_reps, time_targets, first_predictions, time_error)
-
-        #evaluate results
-        tester.evaluate_batch(k_predictions[:,1:], targetvalues, sl, k_predictions[:,0], first_predictions)
-
-        #get next test batch
+        #reset state of datahandler and get first test batch
+        datahandler.reset_user_batch_data()
         xinput, targetvalues, sl, session_reps, sr_sl, user_list, sess_time_reps, time_targets, first_predictions = datahandler.get_next_test_batch()
-        batch_runtime = time.time() - batch_start_time
+        batch_nr = 0
+        if( epoch_nr == MAX_EPOCHS-1):
+            time_error = True
+        else:
+            time_error = False
+        intra_rnn.eval()
+        inter_rnn.eval()
+        while(len(xinput) > int(BATCHSIZE/2)):
+            #batch testing
+            batch_nr += 1
+            batch_start_time = time.time()
 
-        #print progress and ETA occationally
-        if batch_nr%600 == 0:
-            print("Batch: " + str(batch_nr) + "/" + str(num_test_batches))
-            eta = (batch_runtime*(num_test_batches-batch_nr))/60
-            eta = "%.2f" % eta
-            print(" | ETA:", eta, "minutes.")
-        
-    # Print final test stats for epoch
-    test_stats, current_recall5, current_recall20, time_stats, time_output = tester.get_stats_and_reset()
-    print("Recall@5 = " + str(current_recall5))
-    print("Recall@20 = " + str(current_recall20))
-    print(test_stats)
-    print("\n")
-    print(time_stats)
+            #run predictions on test batch
+            k_predictions = predict_on_batch(xinput, targetvalues, sl, session_reps, sr_sl, user_list, sess_time_reps, time_targets, first_predictions, time_error)
+
+            #evaluate results
+            tester.evaluate_batch(k_predictions[:,1:], targetvalues, sl, k_predictions[:,0], first_predictions)
+
+            #get next test batch
+            xinput, targetvalues, sl, session_reps, sr_sl, user_list, sess_time_reps, time_targets, first_predictions = datahandler.get_next_test_batch()
+            batch_runtime = time.time() - batch_start_time
+
+            #print progress and ETA occationally
+            if batch_nr%600 == 0:
+                print("Batch: " + str(batch_nr) + "/" + str(num_test_batches))
+                eta = (batch_runtime*(num_test_batches-batch_nr))/60
+                eta = "%.2f" % eta
+                print(" | ETA:", eta, "minutes.")
+            
+        # Print final test stats for epoch
+        test_stats, current_recall5, current_recall20, time_stats, time_output = tester.get_stats_and_reset(get_time = time_error)
+        print("Recall@5 = " + str(current_recall5))
+        print("Recall@20 = " + str(current_recall20))
+        print(test_stats)
+        if(time_error):
+            print("\n")
+            print(time_stats)
+            print("Integration accuracy:" + str(integration_acc[0]/max(integration_count,1)))
+        integration_acc = torch.cuda.FloatTensor([0])
+        integration_count = 0
+        """
+        info = {
+            "recall@5": current_recall5,
+            "recall@20": current_recall20
+        }
+        for tag, value in info.items():
+            logger.scalar_summary(tag, value, epoch_nr)
+
+        if(time_error):
+            logger.scalar_summary("mae", time_output, epoch_nr)
+        """
     print("Epoch #" + str(epoch_nr) + " Time: " + str(time.time()-start_time_epoch))
-    print("Integration accuracy:" + str(integration_acc[0]/max(integration_count,1)))
     epoch_nr += 1
     epoch_loss = 0
-    integration_acc = torch.cuda.FloatTensor([0])
-    integration_count = 0
-    """
-    info = {
-        "recall@5": current_recall5,
-        "recall@20": current_recall20
-    }
-    for tag, value in info.items():
-        logger.scalar_summary(tag, value, epoch_nr)
-
-    if(time_error):
-        logger.scalar_summary("mae", time_output, epoch_nr)
-    """

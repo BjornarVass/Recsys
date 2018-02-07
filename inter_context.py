@@ -21,9 +21,9 @@ lastfm2 = "lastfm2"
 lastfm3 = "lastfm3"
 
 #set current dataset here
-dataset = lastfm2
+dataset = lastfm
 use_hidden = True
-dataset_path = "datasets/" + dataset + "/4_train_test_split.pickle"
+dataset_path = "datasets/" + dataset + "/5_train_test_split.pickle"
 
 #universal settings
 BATCHSIZE = 100
@@ -39,7 +39,7 @@ USE_DAY = True
 #gpu settings
 USE_CUDA = True
 USE_CUDA_EMBED = True
-GPU = 1
+GPU = 0
 torch.cuda.set_device(GPU)
 
 #dataset dependent settings
@@ -62,7 +62,7 @@ elif dataset == lastfm3:
     MAX_EPOCHS = 25
     min_time = 4.0
 
-INTRA_HIDDEN = EMBEDDING_SIZE+TIME_HIDDEN+USER_HIDDEN
+INTRA_HIDDEN = EMBEDDING_SIZE
 if(use_hidden):
     INTER_HIDDEN = INTRA_HIDDEN+TIME_HIDDEN+USER_HIDDEN
     REP_SIZE = INTRA_HIDDEN
@@ -75,7 +75,7 @@ print("Hidden: " + str(INTRA_HIDDEN))
 print("Time hidden: " + str(TIME_HIDDEN))
 
 #setting of seed
-torch.manual_seed(0) #seed CPU
+torch.manual_seed(1) #seed CPU
 
 #loading of dataset into datahandler and getting relevant iformation about the dataset
 datahandler = RNNDataHandler(dataset_path, BATCHSIZE, MAX_SESSION_REPRESENTATIONS, REP_SIZE, TIME_RESOLUTION, USE_DAY, min_time)
@@ -223,7 +223,7 @@ def process_batch(xinput, targetvalues, session_reps, sess_time_reps, first_Y):
     return training_batch, targets, sessions, sess_times, first
 
 def train_on_batch(xinput, targetvalues, sl, session_reps, sr_sl, user_list, sess_time_reps, time_targets, first_Y):
-	#zero gradients
+    #zero gradients
     inter_optimizer.zero_grad()
     session_embed_optimizer.zero_grad()
     time_embed_optimizer.zero_grad()
@@ -370,7 +370,7 @@ while epoch_nr < MAX_EPOCHS:
     intra_rnn.train()
     inter_rnn.train()
     while(len(xinput) > int(BATCHSIZE/2)): #Why is the stopping condition this?
-      	#batch training
+        #batch training
         batch_start_time = time.time()
 
         #training call
@@ -399,46 +399,48 @@ while epoch_nr < MAX_EPOCHS:
         batch_nr += 1
     #finished training in epoch
     print("Epoch loss: " + str(epoch_loss/batch_nr))
-    print("Starting testing")
+    if(epoch_nr > 0 and (epoch_nr%6 == 0 or epoch_nr == MAX_EPOCHS-1)):
+        print("Starting testing")
 
-    #initialize trainerst
-    tester = Tester(seslen = SEQLEN)
+        #initialize trainerst
+        tester = Tester(seslen = SEQLEN)
 
-    #reset state of datahandler and get first test batch
-    datahandler.reset_user_batch_data()
-    xinput, targetvalues, sl, session_reps, sr_sl, user_list, sess_time_reps, time_targets, first_predictions = datahandler.get_next_test_batch()
-    batch_nr = 0
-    intra_rnn.eval()
-    inter_rnn.eval()
-    while(len(xinput) > int(BATCHSIZE/2)):
-    	#batch testing
-        batch_nr += 1
-        batch_start_time = time.time()
-
-        #run predictions on test batch
-        k_predictions = predict_on_batch(xinput, targetvalues, sl, session_reps, sr_sl, user_list, sess_time_reps, time_targets, first_predictions)
-
-        #evaluate results
-        tester.evaluate_batch(k_predictions, targetvalues, sl)
-
-        #get next test batch
+        #reset state of datahandler and get first test batch
+        datahandler.reset_user_batch_data()
         xinput, targetvalues, sl, session_reps, sr_sl, user_list, sess_time_reps, time_targets, first_predictions = datahandler.get_next_test_batch()
-        batch_runtime = time.time() - batch_start_time
+        batch_nr = 0
+        intra_rnn.eval()
+        inter_rnn.eval()
+        while(len(xinput) > int(BATCHSIZE/2)):
+            #batch testing
+            batch_nr += 1
+            batch_start_time = time.time()
 
-        #print progress and ETA occationally
-        if batch_nr%800 == 0:
-            print("Batch: " + str(batch_nr) + "/" + str(num_test_batches))
-            eta = (batch_runtime*(num_test_batches-batch_nr))/60
-            eta = "%.2f" % eta
-            print(" | ETA:", eta, "minutes.")
-        
-    # Print final test stats for epoch
-    individual_stats, test_stats, current_recall5, current_recall20 = tester.get_stats_and_reset()
-    print("Recall@5 = " + str(current_recall5))
-    print("Recall@20 = " + str(current_recall20))
-    print(test_stats)
-    print("\nIdividual scores")
-    print(individual_stats)
+            #run predictions on test batch
+            k_predictions = predict_on_batch(xinput, targetvalues, sl, session_reps, sr_sl, user_list, sess_time_reps, time_targets, first_predictions)
+
+            #evaluate results
+            tester.evaluate_batch(k_predictions, targetvalues, sl)
+
+            #get next test batch
+            xinput, targetvalues, sl, session_reps, sr_sl, user_list, sess_time_reps, time_targets, first_predictions = datahandler.get_next_test_batch()
+            batch_runtime = time.time() - batch_start_time
+
+            #print progress and ETA occationally
+            if batch_nr%800 == 0:
+                print("Batch: " + str(batch_nr) + "/" + str(num_test_batches))
+                eta = (batch_runtime*(num_test_batches-batch_nr))/60
+                eta = "%.2f" % eta
+                print(" | ETA:", eta, "minutes.")
+            
+        # Print final test stats for epoch
+        individual_stats, test_stats, current_recall5, current_recall20 = tester.get_stats_and_reset()
+        print("Recall@5 = " + str(current_recall5))
+        print("Recall@20 = " + str(current_recall20))
+        print(test_stats)
+        print("\nIdividual scores")
+        print(individual_stats)
+
     print("Epoch #" + str(epoch_nr) + " Time: " + str(time.time()-start_time_epoch))
     epoch_nr += 1
     epoch_loss = 0

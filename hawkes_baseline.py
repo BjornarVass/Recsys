@@ -1,6 +1,7 @@
 from hawkes import MHP
 from hawkes_datahandler import DataHandler
 import numpy as np
+import pickle
 
 #datasets
 reddit = "subreddit"
@@ -9,24 +10,26 @@ lastfm = "lastfm"
 #global settings
 USE_DAY = True
 dataset = reddit
-n_decimals = 2
+n_decimals = 4
+pickle_path = "hawkes_" + dataset + ".pickle"
+
+#parameters
 if(dataset == lastfm):
     min_time = 0.5
 elif(dataset == reddit):
     min_time = 1.0
 
-#parameters
 w = 0.5
-history_length = 30
+history_length = 15
 future_length = 1
 sample_size = 100
-time_buckets = [8, 16, 36, 60, 84, 108, 132, 156, 180, 204, 250, 350, 500, 501]
+time_buckets = [8, 16, 36, 60, 84, 108, 132, 156, 180, 204, 228, 252, 276, 300, 348, 396, 444, 500, 501]
 if(USE_DAY):
     for i in range(len(time_buckets)):
         time_buckets[i] /=24
 
 #loading of data
-dataset_path = "datasets/" + dataset + "/4_train_test_split.pickle"
+dataset_path = "datasets/" + dataset + "/5_train_test_split.pickle"
 datahandler = DataHandler(dataset_path, USE_DAY, min_time)
 
 data = datahandler.get_times()
@@ -138,3 +141,11 @@ for i in range(future_length):
 for msg in time_messages:
     print(msg)
     print("\n")
+
+pickle_dict = {}
+pickle_dict["mae"] = mae
+pickle_dict["count"] = no_predictions
+pickle_dict["buckets"] = time_buckets
+pickle_dict["percent"] = percentage_errors
+
+pickle.dump(pickle_dict, open(pickle_path, 'wb'))

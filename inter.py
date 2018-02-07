@@ -22,9 +22,9 @@ lastfm2 = "lastfm2"
 lastfm3 = "lastfm3"
 
 #set current dataset here
-dataset = reddit
+dataset = lastfm
 use_hidden = True
-dataset_path = "datasets/" + dataset + "/4_train_test_split.pickle"
+dataset_path = "datasets/" + dataset + "/5_train_test_split.pickle"
 
 #universal settings
 BATCHSIZE = 100
@@ -38,11 +38,11 @@ MAX_SESSION_REPRESENTATIONS = 15
 #gpu settings
 USE_CUDA = True
 USE_CUDA_EMBED = True
-GPU = 0
+GPU = 1
 
 #dataset dependent settings
 if dataset == reddit:
-    HIDDEN_SIZE = 70
+    HIDDEN_SIZE = 50
     lr = 0.001
     dropout = 0.0
     MAX_EPOCHS = 31
@@ -56,11 +56,12 @@ EMBEDDING_SIZE = HIDDEN_SIZE
 INTER_HIDDEN = HIDDEN_SIZE
 
 #setting of seed
-torch.manual_seed(0) #seed CPU
+torch.manual_seed(1) #seed CPU
 
 #loading of dataset into datahandler and getting relevant iformation about the dataset
 datahandler = IIRNNDataHandler(dataset_path, BATCHSIZE, MAX_SESSION_REPRESENTATIONS, INTER_HIDDEN)
 N_ITEMS = datahandler.get_num_items()
+print("N_ITEMS: " + str(N_ITEMS))
 N_SESSIONS = datahandler.get_num_training_sessions()
 
 #embedding
