@@ -164,7 +164,7 @@ class Tester:
             pickle_dict["buckets"] = self.time_buckets
             pickle_dict["percent"] = self.time_percent_error
 
-            pickle.dump(pickle_dict, open(pickle_path, 'wb'))
+            pickle.dump(pickle_dict, open(self.pickle_path, 'wb'))
 
         return score_message, recall5, recall20, time_message, time_output
 
