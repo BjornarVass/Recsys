@@ -18,6 +18,8 @@ class Tester:
         self.mrr = [[0]*len(self.k) for i in range(self.session_length)]
         self.first_recall = [0]*len(self.k)
         self.first_mrr = [0]*len(self.k)
+
+        #temporal testing structures
         self.time_buckets = [self.min_time, 8, 16, 36, 60, 84, 108, 132, 156, 180, 204, 228, 252, 276, 300, 348, 396, 444, 500, 501]
         if(self.use_day):
         	for i in range(len(self.time_buckets)):
@@ -94,8 +96,7 @@ class Tester:
         #    tabs += '\t'
         return '\t'+score_type+tabs+score+'\n'
 
-    def get_stats(self, get_time):
-        #recommendation
+    def get_rec_stats(self):
         score_message = "Recall@5\tMRR@5\tRecall@10\tMRR@10\tRecall@20\tMRR@20\n"
         current_recall = [0]*len(self.k)
         current_mrr = [0]*len(self.k)
@@ -125,47 +126,60 @@ class Tester:
 
         recall5 = recall_k[0]
         recall20 = recall_k[2]
+        return score_message, recall5, recall20
 
-        #time prediction
-        time_message = ""
-        time_output = 0
+    def get_time_stats(self):
+        time_message = "\t\tMAE\tPercent\t"
+        cumulative_count = 0
+        cumulative_error = 0
+        cumulative_percent = 0
+        if(self.use_day):
+            prefix = "\ndays<="
+        else:
+            prefix = "\nhours<="
+
+        #add results of individual timebuckets
+        for i in range(len(self.time_buckets)):
+            time_message += prefix+str(round(self.time_buckets[i],1))+"\t"
+            error = self.time_error[i]/max(self.time_count[i],1)
+            percent = self.time_percent_error[i]/max(self.time_count[i],1)
+            if(i > 0 and i != len(self.time_buckets)-1):
+                cumulative_count += self.time_count[i]
+                cumulative_percent += self.time_percent_error[i]
+                cumulative_error += self.time_error[i]
+            time_message += str(round(error, self.n_decimals))+'\t'
+            time_message += str(round(percent, self.n_decimals))+'\t'
+
+        #add cummulative scores
+        cumulative_count = max(cumulative_count,1)
+        time_output = cumulative_error/cumulative_count
+        time_message += "\ntotal-last\t" + str(round(cumulative_error/cumulative_count, self.n_decimals))+'\t' + str(round(cumulative_percent/cumulative_count, self.n_decimals))+'\t'
+        last = len(self.time_buckets)-1
+        cumulative_count += self.time_count[last]
+        cumulative_error += self.time_error[last]
+        cumulative_percent += self.time_percent_error[last]
+        time_message += "\ntotal\t" + str(round(cumulative_error/cumulative_count, self.n_decimals))+'\t' + str(round(cumulative_percent/cumulative_count, self.n_decimals))+'\t'
+
+        #store time results in a pickled dict
+        pickle_dict = {}
+        pickle_dict["mae"] = self.time_error
+        pickle_dict["count"] = self.time_count
+        pickle_dict["buckets"] = self.time_buckets
+        pickle_dict["percent"] = self.time_percent_error
+
+        pickle.dump(pickle_dict, open(self.pickle_path, 'wb'))
+
+        return time_message, time_output
+
+    def get_stats(self, get_time):
+        score_message, recall5, recall20 = self.get_rec_stats()
+
+        #if time results are requested
         if(get_time):
-            time_message = "\t\tMAE\tPercent\t"
-            cumulative_count = 0
-            cumulative_error = 0
-            cumulative_percent = 0
-            prefix = ""
-            if(self.use_day):
-                prefix = "\ndays<="
-            else:
-                prefix = "\nhours<="
-            for i in range(len(self.time_buckets)):
-                time_message += prefix+str(round(self.time_buckets[i],1))+"\t"
-                error = self.time_error[i]/max(self.time_count[i],1)
-                percent = self.time_percent_error[i]/max(self.time_count[i],1)
-                if(i > 0 and i != len(self.time_buckets)-1):
-                    cumulative_count += self.time_count[i]
-                    cumulative_percent += self.time_percent_error[i]
-                    cumulative_error += self.time_error[i]
-                time_message += str(round(error, self.n_decimals))+'\t'
-                time_message += str(round(percent, self.n_decimals))+'\t'
-            cumulative_count = max(cumulative_count,1)
-            time_output = cumulative_error/cumulative_count
-            time_message += "\ntotal-last\t" + str(round(cumulative_error/cumulative_count, self.n_decimals))+'\t' + str(round(cumulative_percent/cumulative_count, self.n_decimals))+'\t'
-            last = len(self.time_buckets)-1
-            cumulative_count += self.time_count[last]
-            cumulative_error += self.time_error[last]
-            cumulative_percent += self.time_percent_error[last]
-            time_message += "\ntotal\t" + str(round(cumulative_error/cumulative_count, self.n_decimals))+'\t' + str(round(cumulative_percent/cumulative_count, self.n_decimals))+'\t'
-
-            pickle_dict = {}
-            pickle_dict["mae"] = self.time_error
-            pickle_dict["count"] = self.time_count
-            pickle_dict["buckets"] = self.time_buckets
-            pickle_dict["percent"] = self.time_percent_error
-
-            pickle.dump(pickle_dict, open(pickle_path, 'wb'))
-
+            time_message, time_output = self.get_time_stats()
+        else:
+            time_message = ""
+            time_output = 0
         return score_message, recall5, recall20, time_message, time_output
 
     def get_stats_and_reset(self, get_time = False):
