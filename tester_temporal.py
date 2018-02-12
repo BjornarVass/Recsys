@@ -2,12 +2,13 @@ import pickle
 
 class Tester:
 
-    def __init__(self, seqlen = 19, use_day = False, min_time = 0.5, model_info = "dump", k=[5, 10, 20]):
+    def __init__(self, seqlen = 19, use_day = False, min_time = 0.5, model_info = "dump", temporal = False, k=[5, 10, 20]):
         self.k = k
         self.session_length = seqlen
         self.n_decimals = 4
         self.pickle_path = model_info + ".pickle"
         self.use_day = use_day
+        self.temporal = temporal
         self.min_time = min_time
         self.initialize()
 
@@ -16,17 +17,18 @@ class Tester:
         self.first_count = 0
         self.recall = [[0]*len(self.k) for i in range(self.session_length)]
         self.mrr = [[0]*len(self.k) for i in range(self.session_length)]
-        self.first_recall = [0]*len(self.k)
-        self.first_mrr = [0]*len(self.k)
+        if(self.temporal):
+            self.first_recall = [0]*len(self.k)
+            self.first_mrr = [0]*len(self.k)
 
-        #temporal testing structures
-        self.time_buckets = [self.min_time, 8, 16, 36, 60, 84, 108, 132, 156, 180, 204, 228, 252, 276, 300, 348, 396, 444, 500, 501]
-        if(self.use_day):
-        	for i in range(len(self.time_buckets)):
-        		self.time_buckets[i] = self.time_buckets[i]/24
-        self.time_count = [0]*len(self.time_buckets)
-        self.time_error = [0]*len(self.time_buckets)
-        self.time_percent_error = [0]*len(self.time_buckets)
+            #temporal testing structures
+            self.time_buckets = [self.min_time, 8, 16, 36, 60, 84, 108, 132, 156, 180, 204, 228, 252, 276, 300, 348, 396, 444, 500, 501]
+            if(self.use_day):
+            	for i in range(len(self.time_buckets)):
+            		self.time_buckets[i] = self.time_buckets[i]/24
+            self.time_count = [0]*len(self.time_buckets)
+            self.time_error = [0]*len(self.time_buckets)
+            self.time_percent_error = [0]*len(self.time_buckets)
 
 
     def get_rank(self, target, predictions):
@@ -59,8 +61,13 @@ class Tester:
                 self.first_mrr[j] += inv_rank
         self.first_count += 1
 
+    def evaluate_batch_rec(self, predictions, targets, sequence_lengths):
+        for batch_index in range(len(predictions)):
+            predicted_sequence = predictions[batch_index]
+            target_sequence = targets[batch_index]
+            self.evaluate_sequence(predicted_sequence, target_sequence, sequence_lengths[batch_index])
 
-    def evaluate_batch(self, predictions, targets, sequence_lengths, first_preds, first_targets):
+    def evaluate_batch_temporal(self, predictions, targets, sequence_lengths, first_preds, first_targets):
         for batch_index in range(len(predictions)):
             predicted_sequence = predictions[batch_index]
             target_sequence = targets[batch_index]
@@ -102,12 +109,13 @@ class Tester:
         current_mrr = [0]*len(self.k)
         current_count = 0
         recall_k = [0]*len(self.k)
-        score_message += "\nfirst\t"
-        for j in range(len(self.k)):
-            r = self.first_recall[j]/self.first_count
-            m = self.first_mrr[j]/self.first_count
-            score_message += str(round(r, self.n_decimals))+'\t'
-            score_message += str(round(m, self.n_decimals))+'\t'
+        if(self.temporal):
+            score_message += "\nfirst\t"
+            for j in range(len(self.k)):
+                r = self.first_recall[j]/self.first_count
+                m = self.first_mrr[j]/self.first_count
+                score_message += str(round(r, self.n_decimals))+'\t'
+                score_message += str(round(m, self.n_decimals))+'\t'
         for i in range(self.session_length):
             score_message += "\ni<="+str(i)+"\t"
             current_count += self.i_count[i]
@@ -127,6 +135,20 @@ class Tester:
         recall5 = recall_k[0]
         recall20 = recall_k[2]
         return score_message, recall5, recall20
+
+    def get_idividual_stats(self):
+        individual_scores = "Individual scores\n"
+        individual_scores += "Recall@5\tMRR@5\tRecall@10\tMRR@10\tRecall@20\tMRR@20\n"
+        for i in range(self.session_length):
+            individual_scores += "\ni<="+str(i)+"\t"
+            for j in range(len(self.k)):
+                
+                r = self.recall[i][j]/self.i_count[i]
+                m = self.mrr[i][j]/self.i_count[i]
+                
+                individual_scores += str(round(r, self.n_decimals))+'\t'
+                individual_scores += str(round(m, self.n_decimals))+'\t'
+        return individual_scores
 
     def get_time_stats(self):
         time_message = "\t\tMAE\tPercent\t"
@@ -173,14 +195,14 @@ class Tester:
 
     def get_stats(self, get_time):
         score_message, recall5, recall20 = self.get_rec_stats()
-
+        individual_scores = self.get_idividual_stats()
         #if time results are requested
         if(get_time):
             time_message, time_output = self.get_time_stats()
         else:
             time_message = ""
             time_output = 0
-        return score_message, recall5, recall20, time_message, time_output
+        return score_message, recall5, recall20, time_message, time_output, individual_scores
 
     def get_stats_and_reset(self, get_time = False):
         message = self.get_stats(get_time)

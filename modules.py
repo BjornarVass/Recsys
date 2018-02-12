@@ -41,7 +41,7 @@ class Inter_RNN(nn.Module):
         hidden_out = hidden_out.squeeze().unsqueeze(0)
         hidden_out = self.dropout(hidden_out)
 
-        return F.relu(hidden_out)
+        return hidden_out
 
     def init_hidden(self, batch_size):
         hidden = Variable(torch.cuda.FloatTensor(1, batch_size, self.hidden_dim).fill_(0))
