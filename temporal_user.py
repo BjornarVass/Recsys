@@ -24,11 +24,12 @@ lastfm3 = "lastfm3"
 
 #runtime settings
 flags = {}
-dataset = reddit
+dataset = lastfm
 flags["context"] = False
 flags["temporal"] = False
 SEED = 0
 GPU = 0
+debug = False
 
 torch.cuda.set_device(GPU)
 torch.manual_seed(SEED)
@@ -63,6 +64,9 @@ elif(flags["context"]):
 else:
     model = "inter"
 log_name = model + "_" + dataset + str(SEED)
+txt_file_name = log_name+".txt"
+with open(txt_file_name,'w+') as txt_file:
+    txt_file.write("New experiment\n")
 
 #dataset dependent settings
 if dataset == reddit:
@@ -120,8 +124,11 @@ epoch_loss = 0
 
 #**********************************************************************TRAINING LOOP********************************************************************************************
 while epoch_nr < MAX_EPOCHS:
-    #print start of new epoch and save start time   
-    print("Starting epoch #" + str(epoch_nr))
+    #print start of new epoch and save start time
+    if(debug):
+        print("Starting epoch #" + str(epoch_nr))
+    with open(txt_file_name,'a') as txt_file:
+        txt_file.write("Starting epoch #" + str(epoch_nr)+"\n")
     start_time_epoch = time.time()
     if(flags["temporal"]):
         model.update_loss_settings(epoch_nr)
@@ -151,22 +158,30 @@ while epoch_nr < MAX_EPOCHS:
 
         #print batch loss and ETA occationally
         if batch_nr%1500 == 0:
-            print("Batch: " + str(batch_nr) + "/" + str(num_training_batches) + " batch_loss: " + str(batch_loss))
             eta = (batch_runtime*(num_training_batches-batch_nr))/60
             eta = "%.2f" % eta
-            print(" | ETA:", eta, "minutes.")
+            if(debug):
+                print("Batch: " + str(batch_nr) + "/" + str(num_training_batches) + " batch_loss: " + str(batch_loss))
+                print(" | ETA:", eta, "minutes.")
+            with open(txt_file_name,'a') as txt_file:
+                txt_file.write("Batch: " + str(batch_nr) + "/" + str(num_training_batches) + " batch_loss: " + str(batch_loss)+"\n")
+                txt_file.write(" | ETA:" + str(eta) + "minutes."+"\n")
 
         batch_nr += 1
     #print mean recommendation loss in epoch
-    print("Epoch loss: " + str(epoch_loss/batch_nr))
-
+    if(debug):
+        print("Epoch loss: " + str(epoch_loss/batch_nr))
+    with open(txt_file_name,'a') as txt_file:
+        txt_file.write("Epoch loss: " + str(epoch_loss/batch_nr)+"\n")
 
 #********************************************************************************TESTING******************************************************************************************
     
     #test the model in some epochs, no need for testing in every epoch for most experiments
     if(epoch_nr > 0 and (epoch_nr%10 == 0 or epoch_nr == MAX_EPOCHS-1)):
-        print("Starting testing")
-
+        if(debug):
+            print("Starting testing")
+        with open(txt_file_name,'a') as txt_file:
+            txt_file.write("Starting testing"+"\n")
         #reset state of datahandler and get first test batch
         datahandler.reset_user_batch_data_test()
         items, item_targets, session_lengths, session_reps, session_rep_lengths, user_list, sess_time_reps, time_targets, first_rec_targets = datahandler.get_next_test_batch()
@@ -200,27 +215,41 @@ while epoch_nr < MAX_EPOCHS:
 
             #print progress and ETA occationally
             if batch_nr%600 == 0:
-                print("Batch: " + str(batch_nr) + "/" + str(num_test_batches))
                 eta = (batch_runtime*(num_test_batches-batch_nr))/60
                 eta = "%.2f" % eta
-                print(" | ETA:", eta, "minutes.")
+                if(debug):
+                    print("Batch: " + str(batch_nr) + "/" + str(num_test_batches))
+                    print(" | ETA:", eta, "minutes.")
+                with open(txt_file_name,'a') as txt_file:
+                    txt_file.write("Batch: " + str(batch_nr) + "/" + str(num_test_batches)+"\n")
+                    txt_file.write(" | ETA:" + str(eta) + "minutes."+"\n")
 
             batch_nr += 1
             
         # Print final test stats for epoch
         test_stats, current_recall5, current_recall20, time_stats, time_output, individual_scores = tester.get_stats_and_reset(get_time = time_error)
-        print("Recall@5 = " + str(current_recall5))
-        print("Recall@20 = " + str(current_recall20))
-        print(test_stats)
-        print("\n")
-        print(individual_scores)
+        if(debug):
+            print("Recall@5 = " + str(current_recall5))
+            print("Recall@20 = " + str(current_recall20))
+            print(test_stats)
+            print("\n")
+            print(individual_scores)
+        with open(txt_file_name,'a') as txt_file:
+            txt_file.write(test_stats+"\n\n")
+            txt_file.write(individual_scores + "\n\n")
 
         #only print time stats if available
         if(time_error):
-            print("\n")
-            print(time_stats)
+            if(debug):
+                print("\n")
+                print(time_stats)
+            with open(txt_file_name,'a') as txt_file:
+                txt_file.write(time_stats + "\n\n")
 
     #end of epoch, print total time, increment counter and reset epoch loss
-    print("Epoch #" + str(epoch_nr) + " Time: " + str(time.time()-start_time_epoch))
+    if(debug):
+        print("Epoch #" + str(epoch_nr) + " Time: " + str(time.time()-start_time_epoch))
+    with open(txt_file_name,'a') as txt_file:
+        txt_file.write("Epoch #" + str(epoch_nr) + " Time: " + str(time.time()-start_time_epoch)+"\n")
     epoch_nr += 1
     epoch_loss = 0

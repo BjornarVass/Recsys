@@ -14,10 +14,10 @@ class RNNDataHandler:
         # LOAD DATASET
         self.dataset_path = dataset_path
         self.batch_size = batch_size
-        print("Loading dataset")
+        #print("Loading dataset")
         load_time = time.time()
         dataset = pickle.load(open(self.dataset_path, 'rb'))
-        print("|- dataset loaded in", str(time.time()-load_time), "s")
+        #print("|- dataset loaded in", str(time.time()-load_time), "s")
 
         self.trainset = dataset['trainset']
         self.testset = dataset['testset']
