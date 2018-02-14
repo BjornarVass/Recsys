@@ -55,14 +55,13 @@ class Intra_RNN(nn.Module):
         self.output_dim = output_dim
         self.dropout = nn.Dropout(dropout_rate)
         self.gru = nn.GRU(input_dim, hidden_dim, batch_first=True)
-        self.dropout = nn.Dropout(dropout_rate)
         self.linear = nn.Linear(hidden_dim, output_dim)
     
     def forward(self, input, hidden, lengths):
         input = self.dropout(input)
         gru_output, _ = self.gru(input, hidden)
-        gru_output = self.dropout(gru_output)
-        output = self.linear(gru_output)
+        output = self.dropout(gru_output)
+        output = self.linear(output)
         hidden_indices = lengths.view(-1,1,1).expand(gru_output.size(0), 1, gru_output.size(2))
         hidden_out = torch.gather(gru_output,1,hidden_indices)
         hidden_out = hidden_out.squeeze().unsqueeze(0)

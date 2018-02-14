@@ -24,16 +24,16 @@ class RecommenderModel:
         time_params = []
 
         #setting up embedding matrices
-        self.item_embed = Embed(self.dims["N_ITEMS"], self.dims["EMBEDDING_DIM"], False)
+        self.item_embed = Embed(self.dims["N_ITEMS"], self.dims["EMBEDDING_DIM"], item=True)
         self.item_embed = self.item_embed.cuda()
         inter_intra_params += list(self.item_embed.parameters())
 
         if(self.flags["context"]):
-            self.time_embed = Embed(self.dims["TIME_RESOLUTION"], self.dims["TIME_HIDDEN"], True)
+            self.time_embed = Embed(self.dims["TIME_RESOLUTION"], self.dims["TIME_HIDDEN"], item=False)
             self.time_embed = self.time_embed.cuda()
             inter_intra_params += list(self.time_embed.parameters())
 
-            self.user_embed = Embed(self.dims["N_USERS"], self.dims["USER_HIDDEN"], True)
+            self.user_embed = Embed(self.dims["N_USERS"], self.dims["USER_HIDDEN"], item=False)
             self.user_embed = self.user_embed.cuda()
             inter_intra_params += list(self.user_embed.parameters())
 
