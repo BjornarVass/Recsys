@@ -82,7 +82,8 @@ class RecommenderModel:
 
     #step function implementing the equantion:
     #exp(time+w*t + exp(time)-exp(time+w*t)/w) = exp_time_w*exp((exp_time-exp_time_w)/w)
-    def step_val(self, t, time_exp, w, dt): 
+    @staticmethod
+    def step_val(t, time_exp, w, dt): 
         time_w_exp = time_exp*torch.exp(t*w)
         exp_2 = torch.exp((time_exp-time_w_exp)/w)
         prob = time_w_exp*exp_2
@@ -91,7 +92,7 @@ class RecommenderModel:
     #simpson numerical integration with higher resolution in the first 100 hours
     def time_prediction(self, time, w):
         #integration settings
-        integration_count += 1
+        #integration_count += 1
         precision = 3000
         T = 700 #time units
         part1 = 100
@@ -109,18 +110,18 @@ class RecommenderModel:
         
         #integration loops
         time_exp = torch.exp(time)
-        time_preds1 = step_val(part1,time_exp, w, dt1)
-        time_preds2 = step_val(T,time_exp, w, dt2) + time_preds1
+        time_preds1 = self.step_val(part1,time_exp, w, dt1)
+        time_preds2 = self.step_val(T,time_exp, w, dt2) + time_preds1
         for i in range(1,precision//2):#high resolution loop
             t = (2*i-1)*dt1
-            time_preds1 += 4*step_val(t,time_exp, w, dt1)
-            time_preds1 += 2*step_val(t+dt1,time_exp, w, dt1)
-        time_preds1 += 4*step_val(part1-dt1,time_exp, w, dt1)
+            time_preds1 += 4*self.step_val(t,time_exp, w, dt1)
+            time_preds1 += 2*self.step_val(t+dt1,time_exp, w, dt1)
+        time_preds1 += 4*self.step_val(part1-dt1,time_exp, w, dt1)
         for i in range(1,precision//2):#rough resolution loop
             t = (2*i-1)*dt2 + part1
-            time_preds2 += 4*step_val(t,time_exp, w, dt2)
-            time_preds2 += 2*step_val(t+dt2,time_exp, w, dt2)
-        time_preds2 += 4*step_val(T-dt2,time_exp,w,dt2)
+            time_preds2 += 4*self.step_val(t,time_exp, w, dt2)
+            time_preds2 += 2*self.step_val(t+dt2,time_exp, w, dt2)
+        time_preds2 += 4*self.step_val(T-dt2,time_exp,w,dt2)
 
         #division moved to the end for efficiency
         time_preds1 *= dt1/3
@@ -286,7 +287,7 @@ class RecommenderModel:
             self.inter_intra_optimizer.step()
         return mean_loss.data[0]
 
-    def predict_on_batch(self, items, session_reps, sess_time_reps, user_list, item_targets, time_targets, first_rec_targets, session_lengths, session_rep_lengths):
+    def predict_on_batch(self, items, session_reps, sess_time_reps, user_list, item_targets, time_targets, first_rec_targets, session_lengths, session_rep_lengths, time_error):
         #get batch from datahandler and turn into variables
         X, S, S_gaps, U = self.process_batch_inputs(items, session_reps, sess_time_reps, user_list)
 
@@ -319,7 +320,7 @@ class RecommenderModel:
             #calculate time error if this is desired
             if(time_error):
                 w = self.time_loss_func.get_w()
-                time_predictions = self.time_prediction(times.data, w.data, self.flags["use_day"])
+                time_predictions = self.time_prediction(times.data, w.data)
                 self.tester.evaluate_batch_time(time_predictions, time_targets)
 
         #get item embeddings

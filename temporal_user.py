@@ -5,6 +5,7 @@ import torch
 import random
 import time
 import math
+import os
 
 from datahandler_temporal import RNNDataHandler
 from tester_temporal import Tester
@@ -24,15 +25,16 @@ lastfm3 = "lastfm3"
 
 #runtime settings
 flags = {}
-dataset = lastfm
-flags["context"] = False
-flags["temporal"] = False
-SEED = 0
-GPU = 0
+dataset = reddit
+flags["context"] = True
+flags["temporal"] = True
+SEED = 1
+GPU = 1
 debug = False
 
-torch.cuda.set_device(GPU)
 torch.manual_seed(SEED)
+os.environ["CUDA_DEVICE_ORDER"]="PCI_BUS_ID"   
+os.environ["CUDA_VISIBLE_DEVICES"]=str(GPU)
 
 #universal "static" settings
 dims = {}
@@ -201,7 +203,7 @@ while epoch_nr < MAX_EPOCHS:
             batch_start_time = time.time()
 
             #run predictions on test batch
-            k_predictions = model.predict_on_batch(items, session_reps, sess_time_reps, user_list, item_targets, time_targets, first_rec_targets, session_lengths, session_rep_lengths)
+            k_predictions = model.predict_on_batch(items, session_reps, sess_time_reps, user_list, item_targets, time_targets, first_rec_targets, session_lengths, session_rep_lengths, time_error)
 
             #evaluate results
             if(flags["temporal"]):
