@@ -54,11 +54,11 @@ class RecommenderModel:
 
             self.first_linear = nn.Linear(self.dims["INTER_HIDDEN"],self.dims["N_ITEMS"])
             self.first_linear = self.first_linear.cuda()
-
+        """
         self.intra_linear = nn.Linear(self.dims["INTER_HIDDEN"],self.dims["INTRA_HIDDEN"])
         self.intra_linear = self.intra_linear.cuda()
         inter_intra_params += list(self.intra_linear.parameters())
-
+        """
         #setting up time loss model
         if(self.flags["temporal"]):
             self.time_loss_func = Time_Loss()
@@ -79,6 +79,9 @@ class RecommenderModel:
         mask = Variable(y.data.float().sign().view(-1,1))
         logpy = logpy*mask
         return logpy.view(-1)
+
+    def get_w(self):
+        return self.time_loss_func.get_w()
 
     #step function implementing the equantion:
     #exp(time+w*t + exp(time)-exp(time+w*t)/w) = exp_time_w*exp((exp_time-exp_time_w)/w)
@@ -212,8 +215,7 @@ class RecommenderModel:
         else:
             inter_last_hidden = self.inter_rnn(S, inter_hidden, rep_indicies)
 
-        #get initial hidden for inter RNN, time scores and first prediction scores from the last hidden state of the inter RNN
-        hidden = self.intra_linear(inter_last_hidden)
+        #get time scores and first prediction scores from the last hidden state of the inter RNN
         if(self.flags["temporal"]):
             times = self.time_linear(inter_last_hidden).squeeze()
             first_predictions = self.first_linear(inter_last_hidden).squeeze()
@@ -230,7 +232,7 @@ class RecommenderModel:
         lengths = lengths.long()-1
 
         #call forward on the inter RNN
-        recommendation_output, hidden_out = self.intra_rnn(embedded_X, hidden, lengths)
+        recommendation_output, hidden_out = self.intra_rnn(embedded_X, inter_last_hidden, lengths)
 
         #store the new session representation based on the current scheme
         if(self.flags["use_hidden"]):
@@ -311,8 +313,7 @@ class RecommenderModel:
         else:
             inter_last_hidden = self.inter_rnn(S, inter_hidden, rep_indicies)
 
-        #get initial hidden for inter RNN, time scores and first prediction scores from the last hidden state of the inter RNN
-        hidden = self.intra_linear(inter_last_hidden)
+        #get time scores and first prediction scores from the last hidden state of the inter RNN
         if(self.flags["temporal"]):
             times = self.time_linear(inter_last_hidden).squeeze()
             first_predictions = self.first_linear(inter_last_hidden).squeeze()
@@ -335,7 +336,7 @@ class RecommenderModel:
         lengths = lengths.long()-1
 
         #call forward on the inter RNN
-        recommendation_output, hidden_out = self.intra_rnn(embedded_X, hidden, lengths)
+        recommendation_output, hidden_out = self.intra_rnn(embedded_X, inter_last_hidden, lengths)
 
         #store the new session representation based on the current scheme
         if(self.flags["use_hidden"]):

@@ -20,16 +20,16 @@ from torch.autograd import Variable
 #datasets
 reddit = "subreddit"
 lastfm = "lastfm"
-lastfm2 = "lastfm2"
+lastfm_simple = "lastfm2"
 lastfm3 = "lastfm3"
 
 #runtime settings
 flags = {}
-dataset = reddit
+dataset = lastfm
 flags["context"] = True
-flags["temporal"] = True
-SEED = 1
-GPU = 1
+flags["temporal"] = False
+SEED = 0
+GPU = 0
 debug = False
 
 torch.manual_seed(SEED)
@@ -45,8 +45,8 @@ SEQLEN = 20-1
 params["TOP_K"] = 20
 MAX_SESSION_REPRESENTATIONS = 15
 dims["TIME_RESOLUTION"] = 500
-dims["TIME_HIDDEN"] = 20
-dims["USER_HIDDEN"] = 30
+dims["TIME_HIDDEN"] = 5
+dims["USER_HIDDEN"] = 10
 flags["train_time"] = True
 flags["train_first"] = True
 flags["train_all"] = True
@@ -78,7 +78,7 @@ if dataset == reddit:
     MAX_EPOCHS = 29
     min_time = 1.0
     flags["freeze"] = False
-elif dataset == lastfm or dataset == lastfm2:
+elif dataset == lastfm or dataset == lastfm_simple:
     dims["EMBEDDING_DIM"] = 100
     params["lr"] = 0.001
     params["dropout"] = 0.2
@@ -103,7 +103,7 @@ if(flags["context"]):
 else:
     dims["INTER_INPUT_DIM"] = dims["INTRA_HIDDEN"]
 
-dims["INTER_HIDDEN"] = dims["INTRA_HIDDEN"] + dims["TIME_HIDDEN"] + dims["USER_HIDDEN"]
+dims["INTER_HIDDEN"] = dims["INTRA_HIDDEN"]
 
 #loading of dataset into datahandler and getting relevant iformation about the dataset
 datahandler = RNNDataHandler(dataset_path, BATCHSIZE, MAX_SESSION_REPRESENTATIONS, dims["INTRA_HIDDEN"], dims["TIME_RESOLUTION"], flags["use_day"], min_time)
@@ -246,6 +246,8 @@ while epoch_nr < MAX_EPOCHS:
                 print("\n")
                 print(time_stats)
             with open(txt_file_name,'a') as txt_file:
+                txt_file.write(str(model.get_w().data))
+                txt_file.write("\n")
                 txt_file.write(time_stats + "\n\n")
 
     #end of epoch, print total time, increment counter and reset epoch loss
