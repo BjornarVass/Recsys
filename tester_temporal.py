@@ -6,10 +6,11 @@ class Tester:
         self.k = k
         self.session_length = seqlen
         self.n_decimals = 4
-        self.pickle_path = model_info + ".pickle"
+        self.pickle_path = model_info
         self.use_day = use_day
         self.temporal = temporal
         self.min_time = min_time
+        self.log_id = 0
         self.initialize()
 
     def initialize(self):
@@ -189,8 +190,8 @@ class Tester:
         pickle_dict["buckets"] = self.time_buckets
         pickle_dict["percent"] = self.time_percent_error
 
-        pickle.dump(pickle_dict, open(self.pickle_path, 'wb'))
-
+        pickle.dump(pickle_dict, open(self.pickle_path + "_" + str(self.log_id) + ".pickle", 'wb'))
+        self.log_id += 1
         return time_message, time_output
 
     def get_stats(self, get_time):

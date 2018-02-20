@@ -137,28 +137,38 @@ class RecommenderModel:
         if(not self.flags["temporal"]):
             return
         else:
+            if(epoch_nr == 0):
+                self.params["ALPHA"] = 1.0
+                self.params["BETA"] = 0.0
+                self.params["GAMMA"] = 0.0
             if(epoch_nr == 4):
                 self.params["ALPHA"] = 0.0
-                self.params["BETA"] = 0.0
-            if(epoch_nr == 8):
                 self.params["BETA"] = 1.0
+            if(epoch_nr == 8):
+                self.params["BETA"] = 0.0
+                self.params["GAMMA"] = 1.0
             if(epoch_nr == 10):
                 self.params["ALPHA"] = 0.5
+                self.params["GAMMA"] = 0.5
             if(epoch_nr == 11):
-                self.params["BETA"] = 0.0
+                self.params["BETA"] = 0.5
+                self.params["GAMMA"] = 0.0
             if(epoch_nr == 12):
-                self.params["ALPHA"] = 0.5
-                self.params["BETA"] = 0.3
+                self.params["ALPHA"] = 0.4
+                self.params["BETA"] = 0.4
+                self.params["GAMMA"] = 0.2
             if(self.flags["freeze"]):
                 if(epoch_nr == 21):
                     self.flags["train_all"] = False
                     self.flags["train_first"] = False
                     self.params["ALPHA"] = 1.0
+                    self.params["BETA"] = 0.0
+                    self.params["GAMMA"] = 0.0
                 if(epoch_nr == 24):
                     self.flags["train_first"] = True
                     self.flags["train_time"] = False
                     self.params["ALPHA"] = 0.0
-                    self.params["BETA"] = 1.0
+                    self.params["GAMMA"] = 1.0
         return
 
     def train_mode(self):
@@ -274,7 +284,7 @@ class RecommenderModel:
             mean_time_loss = time_loss.sum(0)/time_loss_divisor
 
             #calculate gradients
-            combined_loss = (1-self.params["ALPHA"])*((1-self.params["BETA"])*mean_loss+self.params["BETA"]*mean_first_loss)+self.params["ALPHA"]*mean_time_loss
+            combined_loss = self.params["ALPHA"]*mean_time_loss + self.params["BETA"]*mean_loss + self.params["GAMMA"]*mean_first_loss
             combined_loss.backward()
 
             #update parameters through BPTT, options for freezing parts of the network

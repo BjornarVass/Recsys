@@ -20,16 +20,19 @@ from torch.autograd import Variable
 #datasets
 reddit = "subreddit"
 lastfm = "lastfm"
+reddit_std = "subreddit_std"
+lastfm_std = "lastfm_std"
 lastfm_simple = "lastfm2"
 lastfm3 = "lastfm3"
 
 #runtime settings
 flags = {}
-dataset = lastfm
+dataset = reddit_std
 flags["context"] = True
-flags["temporal"] = False
+flags["temporal"] = True
 SEED = 0
-GPU = 0
+GPU = 1
+directory = "temporal/"
 debug = False
 
 torch.manual_seed(SEED)
@@ -53,8 +56,9 @@ flags["train_all"] = True
 flags["use_hidden"] = True
 
 
-params["ALPHA"] = 1.0
-params["BETA"] = 0.05
+params["ALPHA"] = 0.4
+params["BETA"] = 0.4
+params["GAMMA"] = 0.2
 flags["use_day"] = True
 
 #data path and log/model-name
@@ -65,20 +69,20 @@ elif(flags["context"]):
     model = "context"
 else:
     model = "inter"
-log_name = model + "_" + dataset + str(SEED)
+log_name = directory + model + "_" + dataset + str(SEED)
 txt_file_name = log_name+".txt"
 with open(txt_file_name,'w+') as txt_file:
     txt_file.write("New experiment\n")
 
 #dataset dependent settings
-if dataset == reddit:
+if dataset == reddit or dataset == reddit_std:
     dims["EMBEDDING_DIM"] = 50
     params["lr"] = 0.001
     params["dropout"] = 0.2 if flags["context"] else 0.0
-    MAX_EPOCHS = 29
+    MAX_EPOCHS = 29 
     min_time = 1.0
     flags["freeze"] = False
-elif dataset == lastfm or dataset == lastfm_simple:
+elif dataset == lastfm or dataset == lastfm_simple or dataset == lastfm_std:
     dims["EMBEDDING_DIM"] = 100
     params["lr"] = 0.001
     params["dropout"] = 0.2
@@ -95,6 +99,8 @@ elif dataset == lastfm3:
 
 #additional parameter
 time_threshold = torch.cuda.FloatTensor([min_time])
+if(flags["use_day"]):
+    time_threshold /= 24
 
 #dimensionalities
 dims["INTRA_HIDDEN"] = dims["EMBEDDING_DIM"]
@@ -132,8 +138,10 @@ while epoch_nr < MAX_EPOCHS:
     with open(txt_file_name,'a') as txt_file:
         txt_file.write("Starting epoch #" + str(epoch_nr)+"\n")
     start_time_epoch = time.time()
+    """
     if(flags["temporal"]):
         model.update_loss_settings(epoch_nr)
+    """
     #reset state of datahandler and get first training batch
     datahandler.reset_user_batch_data_train()
     datahandler.reset_user_session_representations()
@@ -179,7 +187,7 @@ while epoch_nr < MAX_EPOCHS:
 #********************************************************************************TESTING******************************************************************************************
     
     #test the model in some epochs, no need for testing in every epoch for most experiments
-    if(epoch_nr > 0 and (epoch_nr%10 == 0 or epoch_nr == MAX_EPOCHS-1)):
+    if(epoch_nr > 0 and (epoch_nr%8 == 0 or epoch_nr == MAX_EPOCHS-1)):
         if(debug):
             print("Starting testing")
         with open(txt_file_name,'a') as txt_file:
@@ -189,12 +197,12 @@ while epoch_nr < MAX_EPOCHS:
         items, item_targets, session_lengths, session_reps, session_rep_lengths, user_list, sess_time_reps, time_targets, first_rec_targets = datahandler.get_next_test_batch()
 
         #set flag in order to only perform the expensive time prediction if necessary
-        if( flags["temporal"] and epoch_nr == MAX_EPOCHS-1):
+        if( flags["temporal"]):# and epoch_nr == MAX_EPOCHS-1):
             time_error = True
         else:
             time_error = False
 
-        #set model in evaluation mode, effectivly turing of dropouts and scaling affected weights accordingly
+        #set model in evaluation mode, effectivly turing off dropouts and scaling affected weights accordingly
         model.eval_mode()
 
         batch_nr = 0
