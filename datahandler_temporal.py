@@ -61,21 +61,21 @@ class RNNDataHandler:
                 times.append(0)
             #add gaps within trainset
             for session_index in range(1,len(self.trainset[k])):
-                gap = (self.trainset[k][session_index][0][0]-self.trainset[k][session_index-1][self.train_session_lengths[k][session_index-1]-1][0])/self.divident
+                gap = (self.trainset[k][session_index][0][0]-self.trainset[k][session_index-1][self.train_session_lengths[k][session_index-1]][0])/self.divident
                 times.append(gap if gap > self.min_time else 0)
             self.user_train_times[k] = times
             
             times = []
             #add gap between the last session in train and the first session in test, if the user has sessions in both sets, add gap of 0 if user only has sessions in testset
             if(len(self.trainset[k]) > 0 and len(self.testset[k]) > 0):
-                gap = (self.testset[k][0][0][0]-self.trainset[k][-1][self.train_session_lengths[k][-1]-1][0])/self.divident
+                gap = (self.testset[k][0][0][0]-self.trainset[k][-1][self.train_session_lengths[k][-1]][0])/self.divident
                 times.append(gap if gap > self.min_time else 0)
             elif(len(self.testset[k]) > 0):
                 times.append(0)
 
             #add gaps within testset
             for session_index in range(1,len(self.testset[k])):
-                gap = (self.testset[k][session_index][0][0]-self.testset[k][session_index-1][self.test_session_lengths[k][session_index-1]-1][0])/self.divident
+                gap = (self.testset[k][session_index][0][0]-self.testset[k][session_index-1][self.test_session_lengths[k][session_index-1]][0])/self.divident
                 times.append(gap if gap > self.min_time else 0)
             self.user_test_times[k] = times
 
@@ -224,7 +224,7 @@ class RNNDataHandler:
                 #if(target_time > self.max_time):
                 #    target_time = 0
                 target_time = min(target_time, self.max_time)/self.max_time
-                #target_time = np.log(target_time*(self.max_exp)+1)
+                #target_time = np.log2(min(target_time,self.max_time)/self.max_time*(self.max_exp)+1)
                 target_time = target_time/self.scale
                 target_time = int(target_time//self.delta)
             else:

@@ -22,16 +22,16 @@ reddit = "subreddit"
 lastfm = "lastfm"
 reddit_std = "subreddit_std"
 lastfm_std = "lastfm_std"
-lastfm_simple = "lastfm2"
+lastfm_simple = "lastfm_sim"
 lastfm3 = "lastfm3"
 
 #runtime settings
 flags = {}
-dataset = reddit_std
+dataset = lastfm_simple
 flags["context"] = True
 flags["temporal"] = True
-SEED = 0
-GPU = 1
+SEED = 2
+GPU = 0
 directory = "temporal/"
 debug = False
 
@@ -56,9 +56,9 @@ flags["train_all"] = True
 flags["use_hidden"] = True
 
 
-params["ALPHA"] = 0.4
-params["BETA"] = 0.4
-params["GAMMA"] = 0.2
+params["ALPHA"] = 0.45
+params["BETA"] = 0.45
+params["GAMMA"] = 0.1
 flags["use_day"] = True
 
 #data path and log/model-name
@@ -142,6 +142,7 @@ while epoch_nr < MAX_EPOCHS:
     if(flags["temporal"]):
         model.update_loss_settings(epoch_nr)
     """
+
     #reset state of datahandler and get first training batch
     datahandler.reset_user_batch_data_train()
     datahandler.reset_user_session_representations()
@@ -197,7 +198,7 @@ while epoch_nr < MAX_EPOCHS:
         items, item_targets, session_lengths, session_reps, session_rep_lengths, user_list, sess_time_reps, time_targets, first_rec_targets = datahandler.get_next_test_batch()
 
         #set flag in order to only perform the expensive time prediction if necessary
-        if( flags["temporal"]):# and epoch_nr == MAX_EPOCHS-1):
+        if( flags["temporal"] and epoch_nr == MAX_EPOCHS-1):
             time_error = True
         else:
             time_error = False
@@ -237,16 +238,14 @@ while epoch_nr < MAX_EPOCHS:
             batch_nr += 1
             
         # Print final test stats for epoch
-        test_stats, current_recall5, current_recall20, time_stats, time_output, individual_scores = tester.get_stats_and_reset(get_time = time_error)
+        test_stats, time_stats, individual_stats = tester.get_stats_and_reset(get_time = time_error, store = epoch_nr == MAX_EPOCHS-1)
         if(debug):
-            print("Recall@5 = " + str(current_recall5))
-            print("Recall@20 = " + str(current_recall20))
             print(test_stats)
             print("\n")
-            print(individual_scores)
+            print(individual_stats)
         with open(txt_file_name,'a') as txt_file:
             txt_file.write(test_stats+"\n\n")
-            txt_file.write(individual_scores + "\n\n")
+            txt_file.write(individual_stats + "\n\n")
 
         #only print time stats if available
         if(time_error):

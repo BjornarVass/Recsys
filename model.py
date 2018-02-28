@@ -63,7 +63,7 @@ class RecommenderModel:
         if(self.flags["temporal"]):
             self.time_loss_func = Time_Loss()
             self.time_loss_func = self.time_loss_func.cuda()
-            time_params += [{"params": self.time_loss_func.parameters(), "lr": 0.1*self.params["lr"]}]
+            time_params += [{"params": self.time_loss_func.parameters(), "lr": self.params["lr"]}]
 
         #setting up optimizers
         self.inter_intra_optimizer = torch.optim.Adam(inter_intra_params, lr=self.params["lr"])
@@ -154,9 +154,9 @@ class RecommenderModel:
                 self.params["BETA"] = 0.5
                 self.params["GAMMA"] = 0.0
             if(epoch_nr == 12):
-                self.params["ALPHA"] = 0.4
-                self.params["BETA"] = 0.4
-                self.params["GAMMA"] = 0.2
+                self.params["ALPHA"] = 0.45
+                self.params["BETA"] = 0.45
+                self.params["GAMMA"] = 0.1
             if(self.flags["freeze"]):
                 if(epoch_nr == 21):
                     self.flags["train_all"] = False

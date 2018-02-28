@@ -105,19 +105,24 @@ class Tester:
         return '\t'+score_type+tabs+score+'\n'
 
     def get_rec_stats(self):
-        score_message = "Recall@5\tMRR@5\tRecall@10\tMRR@10\tRecall@20\tMRR@20\n"
+        score_message = "Recall@5\tRecall@10\tRecall@20\tMRR@5\tMRR@10\tMRR@20\n"
         current_recall = [0]*len(self.k)
         current_mrr = [0]*len(self.k)
         current_count = 0
         recall_k = [0]*len(self.k)
         if(self.temporal):
+            recall_line = ""
+            mrr_line = ""
             score_message += "\nfirst\t"
             for j in range(len(self.k)):
                 r = self.first_recall[j]/self.first_count
                 m = self.first_mrr[j]/self.first_count
-                score_message += str(round(r, self.n_decimals))+'\t'
-                score_message += str(round(m, self.n_decimals))+'\t'
+                recall_line += str(round(r, self.n_decimals))+'\t'
+                mrr_line += str(round(m, self.n_decimals))+'\t'
+            score_message += recall_line + mrr_line
         for i in range(self.session_length):
+            recall_line = ""
+            mrr_line = ""
             score_message += "\ni<="+str(i)+"\t"
             current_count += self.i_count[i]
             for j in range(len(self.k)):
@@ -128,27 +133,28 @@ class Tester:
                 r = current_recall[j]/current_count
                 m = current_mrr[j]/current_count
                 
-                score_message += str(round(r, self.n_decimals))+'\t'
-                score_message += str(round(m, self.n_decimals))+'\t'
+                recall_line += str(round(r, self.n_decimals))+'\t'
+                mrr_line += str(round(m, self.n_decimals))+'\t'
 
                 recall_k[j] = r
-
-        recall5 = recall_k[0]
-        recall20 = recall_k[2]
-        return score_message, recall5, recall20
+            score_message += recall_line + mrr_line
+        return score_message
 
     def get_idividual_stats(self):
         individual_scores = "Individual scores\n"
-        individual_scores += "Recall@5\tMRR@5\tRecall@10\tMRR@10\tRecall@20\tMRR@20\n"
+        individual_scores += "Recall@5\tRecall@10\tRecall@20\tMRR@5\tMRR@10\tMRR@20\n"
         for i in range(self.session_length):
+            recall_line = ""
+            mrr_line = ""
             individual_scores += "\ni<="+str(i)+"\t"
             for j in range(len(self.k)):
                 
                 r = self.recall[i][j]/self.i_count[i]
                 m = self.mrr[i][j]/self.i_count[i]
                 
-                individual_scores += str(round(r, self.n_decimals))+'\t'
-                individual_scores += str(round(m, self.n_decimals))+'\t'
+                recall_line += str(round(r, self.n_decimals))+'\t'
+                mrr_line += str(round(m, self.n_decimals))+'\t'
+            individual_scores += recall_line + mrr_line
         return individual_scores
 
     def get_time_stats(self):
@@ -182,30 +188,50 @@ class Tester:
         cumulative_error += self.time_error[last]
         cumulative_percent += self.time_percent_error[last]
         time_message += "\ntotal\t" + str(round(cumulative_error/cumulative_count, self.n_decimals))+'\t' + str(round(cumulative_percent/cumulative_count, self.n_decimals))+'\t'
-
-        #store time results in a pickled dict
-        pickle_dict = {}
-        pickle_dict["mae"] = self.time_error
-        pickle_dict["count"] = self.time_count
-        pickle_dict["buckets"] = self.time_buckets
-        pickle_dict["percent"] = self.time_percent_error
-
-        pickle.dump(pickle_dict, open(self.pickle_path + "_" + str(self.log_id) + ".pickle", 'wb'))
-        self.log_id += 1
-        return time_message, time_output
+        
+        return time_message
 
     def get_stats(self, get_time):
-        score_message, recall5, recall20 = self.get_rec_stats()
+        score_message = self.get_rec_stats()
         individual_scores = self.get_idividual_stats()
         #if time results are requested
         if(get_time):
-            time_message, time_output = self.get_time_stats()
+            time_message = self.get_time_stats()
         else:
             time_message = ""
-            time_output = 0
-        return score_message, recall5, recall20, time_message, time_output, individual_scores
+        return score_message, time_message, individual_scores
 
-    def get_stats_and_reset(self, get_time = False):
+    def store_stats(self, get_time):
+        #recommendation
+        rec_dict = {}
+        rec_dict["counts"] = self.i_count
+        rec_dict["k"] = self.k
+        rec_dict["session_length"] = self.session_length
+        rec_dict["recall"] = self.recall
+        rec_dict["mrr"] = self.mrr
+        rec_dict["temporal"] = self.temporal
+        if(self.temporal):
+            rec_dict["first_count"] = self.first_count
+            rec_dict["first_recall"] = self.first_recall
+            rec_dict["first_mrr"] = self.first_mrr
+
+        #time prediction
+        time_dict = {}
+        if(get_time):
+            time_dict["mae"] = self.time_error
+            time_dict["count"] = self.time_count
+            time_dict["buckets"] = self.time_buckets
+            time_dict["percent"] = self.time_percent_error
+
+        pickle_dict = {"rec": rec_dict, "time": time_dict}
+
+        #store pickle
+        pickle.dump(pickle_dict, open(self.pickle_path + ".pickle", 'wb'))
+        return
+
+    def get_stats_and_reset(self, get_time = False, store = False):
         message = self.get_stats(get_time)
+        if(store):
+            self.store_stats(get_time)
         self.initialize()
         return message
