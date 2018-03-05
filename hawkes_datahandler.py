@@ -41,18 +41,23 @@ class DataHandler:
     def init_user_times(self):
         self.user_times = [None]*self.num_users
         self.max_time = 500/self.time_factor
-        for k, v in self.trainset.items():
-            times = [self.trainset[k][0][0][0]/self.divident]
-            for session_index in range(1,len(v)):
-                gap = (self.trainset[k][session_index][0][0]-self.trainset[k][session_index-1][self.train_session_lengths[k][session_index-1]-1][0])/self.divident
+        for k in self.trainset.keys():
+            train = self.trainset[k] 
+            if(len(train) > 0):
+                times = [train[0][0][0]/self.divident]
+            else:
+                times = []
+            for session_index in range(1,len(train)):
+                gap = (train[session_index][0][0]-train[session_index-1][self.train_session_lengths[k][session_index-1]][0])/self.divident
                 if(gap > self.min_time):
-                    times.append(self.trainset[k][session_index][0][0]/self.divident)
+                    times.append(train[session_index][0][0]/self.divident)
             test = self.testset[k]
-            gap = (test[0][0][0]-self.trainset[k][-1][self.train_session_lengths[k][session_index-1]-1][0])/self.divident
-            if(gap > self.min_time):
-                times.append(test[0][0][0]/self.divident)
+            if(len(train) > 0 and len(test) > 0):
+                gap = (test[0][0][0]-train[-1][self.train_session_lengths[k][-1]][0])/self.divident
+                if(gap > self.min_time):
+                    times.append(test[0][0][0]/self.divident)
             for session_index in range(1,len(test)):
-                gap = (test[session_index][0][0]-test[session_index-1][self.test_session_lengths[k][session_index-1]-1][0])/self.divident
+                gap = (test[session_index][0][0]-test[session_index-1][self.test_session_lengths[k][session_index-1]][0])/self.divident
                 if(gap > self.min_time):
                     times.append(test[session_index][0][0]/self.divident)
             self.user_times[k] = times
