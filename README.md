@@ -33,7 +33,8 @@ If both python 2.x and python 3.x is available in your environment, you might ha
 
 As of now, only the main script/model, dynamic_model.py, will automatically write to a new log file. For the hawkes baseline and non-hierarchical recommender basline, the logs are directly printed to stdout.
 
-An easy way to decouple a running script from the terminal window and pipe stdout to a logfile, can be achieved by: python [filename] &  
+An easy way to decouple a running script from the terminal window and pipe stdout to a logfile, can be achieved by:  
+- python -u [filename] &> [logfile] &  
 The "-u" flag is used to make the scripts write to the file in "real-time", "&>" pipes stdout and stderr(for potential debugging) and the last "&" decouples the terminal  
 The logfile in question will contain the full result tables for each epoch as well as some progress prints.
 
