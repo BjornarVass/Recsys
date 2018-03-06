@@ -13,6 +13,17 @@
 ##########################
 
 
+# MODIFICATION
+# generate_seq():
+#  time horizon replaced by number of future events to generate
+#  now accepts initial last rates for non cold-starts
+# get_init_rates(): New class method
+#  simulates the rate for a provided sequence
+#  outputs the rate at the time of the last event in the sequence
+# Author: Bjoernar Vassoey
+
+##########################
+
 import numpy as np
 import time as T
 
@@ -101,7 +112,8 @@ class MHP:
     def get_init_rates(self, sequence):
         '''uses a sequence of actual events and their relative timestamps to simulate the hawkes 
         process's rate throughout a limited history. Feeding in the last rate allows for more 
-        accurate generation of the following events compared to a cold-start'''
+        accurate generation of the following events compared to a cold-start
+        NB! Only works for single dimensional processes with alpha size == 1'''
         lastrates = self.mu.copy()
         for i in range(1,len(sequence)):
             rates = self.mu + np.exp(-self.omega * (sequence[i][0]-sequence[i-1][0])) * \

@@ -5,18 +5,20 @@ import pickle
 
 #datasets
 reddit = "subreddit"
+reddit_std = "subreddit_std_eight"
 lastfm = "lastfm"
+lastfm_std = "lastfm_std"
 
 #global settings
 USE_DAY = True
-dataset = reddit
+dataset = reddit_std
 n_decimals = 4
 pickle_path = "hawkes_" + dataset + ".pickle"
 
 #parameters
-if(dataset == lastfm):
+if(dataset == lastfm or dataset == lastfm_std):
     min_time = 0.5
-elif(dataset == reddit):
+elif(dataset == reddit or dataset == reddit_std):
     min_time = 1.0
 
 w = 0.5
@@ -29,7 +31,7 @@ if(USE_DAY):
         time_buckets[i] /=24
 
 #loading of data
-dataset_path = "datasets/" + dataset + "/5_train_test_split.pickle"
+dataset_path = "datasets/" + dataset + "/4_train_test_split.pickle"
 datahandler = DataHandler(dataset_path, USE_DAY, min_time)
 
 data = datahandler.get_times()
