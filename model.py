@@ -50,7 +50,7 @@ class RecommenderModel:
         if(self.flags["temporal"]):
             self.time_linear = nn.Linear(self.dims["INTER_HIDDEN"],1)
             self.time_linear = self.time_linear.cuda()
-            time_params += [{"params": self.time_linear.parameters()}]
+            time_params += [{"params": self.time_linear.parameters(), "lr":0.1*self.params["lr"]}]
 
             self.first_linear = nn.Linear(self.dims["INTER_HIDDEN"],self.dims["N_ITEMS"])
             self.first_linear = self.first_linear.cuda()
@@ -63,7 +63,7 @@ class RecommenderModel:
         if(self.flags["temporal"]):
             self.time_loss_func = Time_Loss()
             self.time_loss_func = self.time_loss_func.cuda()
-            time_params += [{"params": self.time_loss_func.parameters(), "lr": self.params["lr"]}]
+            time_params += [{"params": self.time_loss_func.parameters(), "lr": 0.1*self.params["lr"]}]
 
         #setting up optimizers
         self.inter_intra_optimizer = torch.optim.Adam(inter_intra_params, lr=self.params["lr"])

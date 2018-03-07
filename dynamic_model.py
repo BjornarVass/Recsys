@@ -8,7 +8,7 @@ import math
 import os
 
 from datahandler_temporal import RNNDataHandler
-from tester_temporal import Tester
+from tester_dynamic import Tester
 from model import RecommenderModel
 
 import torch.nn as nn
@@ -21,18 +21,18 @@ from torch.autograd import Variable
 reddit = "subreddit"
 lastfm = "lastfm"
 reddit_std = "subreddit_std"
-lastfm_std = "lastfm_std"
+lastfm_time = "lastfm_time"
 lastfm_simple = "lastfm_sim"
 lastfm3 = "lastfm3"
 
 #runtime settings
 flags = {}
-dataset = lastfm_simple
+dataset = lastfm_time
 flags["context"] = True
 flags["temporal"] = True
-SEED = 2
+SEED = 1
 GPU = 0
-directory = "temporal/"
+directory = "temporal/max_"
 debug = False
 
 torch.manual_seed(SEED)
@@ -82,7 +82,7 @@ if dataset == reddit or dataset == reddit_std:
     MAX_EPOCHS = 29 
     min_time = 1.0
     flags["freeze"] = False
-elif dataset == lastfm or dataset == lastfm_simple or dataset == lastfm_std:
+elif dataset == lastfm or dataset == lastfm_simple or dataset == lastfm_time:
     dims["EMBEDDING_DIM"] = 100
     params["lr"] = 0.001
     params["dropout"] = 0.2
