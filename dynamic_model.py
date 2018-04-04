@@ -20,19 +20,20 @@ from torch.autograd import Variable
 #datasets
 reddit = "subreddit"
 lastfm = "lastfm"
-reddit_std = "subreddit_std"
+reddit_time = "subreddit_time"
 lastfm_time = "lastfm_time"
 lastfm_simple = "lastfm_sim"
 lastfm3 = "lastfm3"
 
 #runtime settings
 flags = {}
-dataset = lastfm_time
+dataset = reddit_time
 flags["context"] = True
 flags["temporal"] = True
-SEED = 1
+SEED = 0
 GPU = 0
-directory = "temporal/max_"
+gap_strat = ""
+directory = "/data/stud/bjorva/logs/temporal/" #+ gap_strat + "_"
 debug = False
 
 torch.manual_seed(SEED)
@@ -62,7 +63,7 @@ params["GAMMA"] = 0.1
 flags["use_day"] = True
 
 #data path and log/model-name
-dataset_path = "datasets/" + dataset + "/4_train_test_split.pickle"
+dataset_path = "/data/stud/bjorva/datasets/" + dataset + "/4_train_test_split.pickle"
 if(flags["temporal"]):
     model = "temporal"
 elif(flags["context"]):
@@ -75,18 +76,22 @@ with open(txt_file_name,'w+') as txt_file:
     txt_file.write("New experiment\n")
 
 #dataset dependent settings
-if dataset == reddit or dataset == reddit_std:
+if dataset == reddit or dataset == reddit_time:
     dims["EMBEDDING_DIM"] = 50
     params["lr"] = 0.001
     params["dropout"] = 0.2 if flags["context"] else 0.0
-    MAX_EPOCHS = 29 
+    MAX_EPOCHS = 30
+    if model == "inter":
+        MAX_EPOCHS -= 10
     min_time = 1.0
     flags["freeze"] = False
 elif dataset == lastfm or dataset == lastfm_simple or dataset == lastfm_time:
     dims["EMBEDDING_DIM"] = 100
     params["lr"] = 0.001
     params["dropout"] = 0.2
-    MAX_EPOCHS = 25
+    MAX_EPOCHS = 24
+    if model == "inter":
+        MAX_EPOCHS -= 3
     min_time = 0.5
     flags["freeze"] = False
 elif dataset == lastfm3:
@@ -112,7 +117,7 @@ else:
 dims["INTER_HIDDEN"] = dims["INTRA_HIDDEN"]
 
 #loading of dataset into datahandler and getting relevant iformation about the dataset
-datahandler = RNNDataHandler(dataset_path, BATCHSIZE, MAX_SESSION_REPRESENTATIONS, dims["INTRA_HIDDEN"], dims["TIME_RESOLUTION"], flags["use_day"], min_time)
+datahandler = RNNDataHandler(dataset_path, BATCHSIZE, MAX_SESSION_REPRESENTATIONS, dims["INTRA_HIDDEN"], dims["TIME_RESOLUTION"], flags["use_day"], min_time, gap_strat)
 dims["N_ITEMS"] = datahandler.get_num_items()
 N_SESSIONS = datahandler.get_num_training_sessions()
 dims["N_USERS"] = datahandler.get_num_users()
@@ -188,7 +193,7 @@ while epoch_nr < MAX_EPOCHS:
 #********************************************************************************TESTING******************************************************************************************
     
     #test the model in some epochs, no need for testing in every epoch for most experiments
-    if(epoch_nr > 0 and (epoch_nr%8 == 0 or epoch_nr == MAX_EPOCHS-1)):
+    if(epoch_nr == MAX_EPOCHS-1):
         if(debug):
             print("Starting testing")
         with open(txt_file_name,'a') as txt_file:

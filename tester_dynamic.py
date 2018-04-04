@@ -23,7 +23,7 @@ class Tester:
             self.first_mrr = [0]*len(self.k)
 
             #temporal testing structures
-            self.time_buckets = [self.min_time, 8, 16, 36, 60, 84, 108, 132, 156, 180, 204, 228, 252, 276, 300, 348, 396, 444, 500, 501]
+            self.time_buckets = [self.min_time, 2, 12, 36, 60, 84, 108, 132, 156, 180, 204, 228, 252, 276, 300, 348, 396, 444, 500, 501]
             if(self.use_day):
             	for i in range(len(self.time_buckets)):
             		self.time_buckets[i] = self.time_buckets[i]/24

@@ -10,7 +10,7 @@ from datetime import datetime
 
 class RNNDataHandler:
     
-    def __init__(self, dataset_path, batch_size, max_sess_reps, lt_internalsize, time_resolution, use_day, min_time):
+    def __init__(self, dataset_path, batch_size, max_sess_reps, lt_internalsize, time_resolution, use_day, min_time, gap_strat):
         # LOAD DATASET
         self.dataset_path = dataset_path
         self.batch_size = batch_size
@@ -34,6 +34,7 @@ class RNNDataHandler:
         self.LT_INTERNALSIZE = lt_internalsize
     
         # batch control
+        self.gap_strat = gap_strat
         self.time_resolution = time_resolution
         self.use_day = use_day
         self.time_factor = 24 if self.use_day else 1
@@ -54,33 +55,44 @@ class RNNDataHandler:
 
         #add gap-times based on first timestamp in new session and the last timestamp in the last session
         #gaps that are less than provided minimum threshold indicate that the two sessions involved originally was a single session, thus the gap should be ignored
-        for k in self.trainset.keys():
-            times = []
-            #add initial gap of zero if the user has a session in the trainset
-            if(len(self.trainset[k]) > 0):
-                times.append(0)
-            #add gaps within trainset
-            for session_index in range(1,len(self.trainset[k])):
-                gap = (self.trainset[k][session_index][0][0]-self.trainset[k][session_index-1][self.train_session_lengths[k][session_index-1]][0])/self.divident
-                gap = gap if gap < self.max_time else self.max_time
-                times.append(gap if gap > self.min_time else 0)
-            self.user_train_times[k] = times
-            
-            times = []
-            #add gap between the last session in train and the first session in test, if the user has sessions in both sets, add gap of 0 if user only has sessions in testset
-            if(len(self.trainset[k]) > 0 and len(self.testset[k]) > 0):
-                gap = (self.testset[k][0][0][0]-self.trainset[k][-1][self.train_session_lengths[k][-1]][0])/self.divident
-                gap = gap if gap < self.max_time else self.max_time
-                times.append(gap if gap > self.min_time else 0)
-            elif(len(self.testset[k]) > 0):
-                times.append(0)
+        
+        if(self.gap_strat == ""):
+            for k in self.trainset.keys():
+                times = []
+                #add initial gap of zero if the user has a session in the trainset
+                if(len(self.trainset[k]) > 0):
+                    times.append(0)
+                #add gaps within trainset
+                for session_index in range(1,len(self.trainset[k])):
+                    gap = self.real_gap(self.trainset[k][session_index][0][0],self.trainset[k][session_index-1][self.train_session_lengths[k][session_index-1]][0])
+                    times.append(gap)
+                self.user_train_times[k] = times
+                
+                times = []
+                #add gap between the last session in train and the first session in test, if the user has sessions in both sets, add gap of 0 if user only has sessions in testset
+                if(len(self.trainset[k]) > 0 and len(self.testset[k]) > 0):
+                    gap = self.real_gap(self.testset[k][0][0][0],self.trainset[k][-1][self.train_session_lengths[k][-1]][0])
+                    times.append(gap)
+                elif(len(self.testset[k]) > 0):
+                    times.append(0)
 
-            #add gaps within testset
-            for session_index in range(1,len(self.testset[k])):
-                gap = (self.testset[k][session_index][0][0]-self.testset[k][session_index-1][self.test_session_lengths[k][session_index-1]][0])/self.divident
-                gap = gap if gap < self.max_time else self.max_time
-                times.append(gap if gap > self.min_time else 0)
-            self.user_test_times[k] = times
+                #add gaps within testset
+                for session_index in range(1,len(self.testset[k])):
+                    gap = self.real_gap(self.testset[k][session_index][0][0],self.testset[k][session_index-1][self.test_session_lengths[k][session_index-1]][0])
+                    times.append(gap)
+                self.user_test_times[k] = times
+        else:
+            end_index = self.dataset_path.index("4")
+            pickle_path = self.dataset_path[:end_index] + "gaps_" + self.gap_strat + ".pickle"
+            times = pickle.load(open(pickle_path ,"rb"))
+            self.user_train_times = times["train"]
+            self.user_test_times = times["test"]
+
+
+    def real_gap(self, new_time, old_time):
+        gap = (new_time-old_time)/self.divident
+        gap = gap if gap < self.max_time else self.max_time
+        return gap if gap > self.min_time else 0
 
     # call before training and testing
     def reset_user_batch_data(self, dataset):
