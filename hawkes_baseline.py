@@ -8,14 +8,15 @@ reddit = "subreddit"
 reddit_std = "subreddit_std_eight"
 lastfm = "lastfm"
 lastfm_simple = "lastfm_sim"
+instacart = "instacart"
 
 #global settings
 USE_DAY = True
-dataset = reddit
+dataset = lastfm
 n_decimals = 4
 
 #parameters
-if(dataset == lastfm or dataset == lastfm_simple):
+if(dataset == lastfm or dataset == lastfm_simple or dataset == instacart):
     min_time = 0.5
 elif(dataset == reddit or dataset == reddit_std):
     min_time = 1.0
@@ -25,7 +26,7 @@ full_hist = False
 gap_strat = ""
 
 add = "_" if gap_strat != "" else ""
-pickle_path = "hires_" + dataset + add + gap_strat + ".pickle"
+pickle_path = "hawkes_regular_" + dataset + add + gap_strat + "4.pickle"
 omega = 8
 history_length = 15
 future_length = 1
@@ -174,11 +175,11 @@ for i in range(future_length):
     cumulative_percent += percentage_errors[i][last]
     time_message += "\ntotal\t" + str(round(cumulative_error/cumulative_count, n_decimals))+'\t' + str(round(cumulative_percent/cumulative_count, n_decimals))+'\t'
     time_messages.append(time_message)
-
+"""
 for msg in time_messages:
     print(msg)
     print("\n")
-
+"""
 pickle_dict = {}
 pickle_dict["mae"] = mae
 pickle_dict["count"] = no_predictions

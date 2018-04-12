@@ -24,16 +24,17 @@ reddit_time = "subreddit_time"
 lastfm_time = "lastfm_time"
 lastfm_simple = "lastfm_sim"
 lastfm3 = "lastfm3"
+instacart = "instacart"
 
 #runtime settings
 flags = {}
-dataset = reddit_time
+dataset = lastfm
 flags["context"] = True
 flags["temporal"] = True
 SEED = 0
 GPU = 0
-gap_strat = ""
-directory = "/data/stud/bjorva/logs/temporal/" #+ gap_strat + "_"
+gap_strat = "normal"
+directory = "/data/stud/bjorva/logs/temporal/" + gap_strat + "_"
 debug = False
 
 torch.manual_seed(SEED)
@@ -94,14 +95,13 @@ elif dataset == lastfm or dataset == lastfm_simple or dataset == lastfm_time:
         MAX_EPOCHS -= 3
     min_time = 0.5
     flags["freeze"] = False
-elif dataset == lastfm3:
-    dims["EMBEDDING_DIM"] = 100
+elif dataset == instacart:
+    dims["EMBEDDING_DIM"] = 80
     params["lr"] = 0.001
     params["dropout"] = 0.2
-    MAX_EPOCHS = 25
-    min_time = 4.0
-    flags["freeze"] = True
-
+    MAX_EPOCHS = 30
+    min_time = 0.5
+    flags["freeze"] = False
 #additional parameter
 time_threshold = torch.cuda.FloatTensor([min_time])
 if(flags["use_day"]):
