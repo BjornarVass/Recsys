@@ -31,10 +31,11 @@ flags = {}
 dataset = lastfm
 flags["context"] = True
 flags["temporal"] = True
-SEED = 0
-GPU = 0
-gap_strat = "normal"
-directory = "/data/stud/bjorva/logs/temporal/" + gap_strat + "_"
+SEED = 1
+GPU = 1
+gap_strat = ""
+add = "_" if gap_strat != "" else ""
+directory = "/data/stud/bjorva/logs/sqrt/" + gap_strat + add
 debug = False
 
 torch.manual_seed(SEED)
@@ -61,6 +62,7 @@ flags["use_hidden"] = True
 params["ALPHA"] = 0.45
 params["BETA"] = 0.45
 params["GAMMA"] = 0.1
+params["EPSILON"] = 0.5
 flags["use_day"] = True
 
 #data path and log/model-name

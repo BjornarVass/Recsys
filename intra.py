@@ -1,5 +1,6 @@
 import torch
 import time
+import os
 
 from datahandler import PlainRNNDataHandler
 from tester import Tester
@@ -14,20 +15,23 @@ reddit = "subreddit"
 lastfm = "lastfm"
 
 #set current dataset here
-dataset = reddit
-dataset_path = "datasets/" + dataset + "/4_train_test_split.pickle"
+dataset = lastfm
+dataset_path = "/data/stud/bjorva/datasets/" + dataset + "/4_train_test_split.pickle"
+pickle_path = "/data/stud/bjorva/logs/intra/"
 
 #universal settings
 BATCHSIZE = 100
 N_LAYERS = 1 #currently not used
 SEQLEN = 20-1
-MAX_EPOCHS = 100
 TOP_K = 20
+MAX_EPOCHS = 30
 
-#gpu settings
+#runtime settings
 USE_CUDA = True
 USE_CUDA_EMBED = True
-GPU = 1 #currently not used
+SEED = 0
+GPU = 1
+debug = False
 
 #dataset dependent settings
 if dataset == reddit:
@@ -42,7 +46,9 @@ elif dataset == lastfm:
 EMBEDDING_SIZE = HIDDEN_SIZE
 
 #setting of seed
-torch.manual_seed(0) #seed CPU
+torch.manual_seed(SEED) #seed CPU
+os.environ["CUDA_DEVICE_ORDER"]="PCI_BUS_ID"   
+os.environ["CUDA_VISIBLE_DEVICES"]=str(GPU)
 
 #loading of dataset into datahandler and getting relevant iformation about the dataset
 datahandler = PlainRNNDataHandler(dataset_path, BATCHSIZE)
@@ -59,10 +65,8 @@ class Intra_RNN(nn.Module):
         self.output_size = output_size
         if(USE_CUDA_EMBED):
             self.embed = nn.Embedding(output_size, embedding_dim)
-            self.embed.weight.data.copy_(torch.zeros(output_size,embedding_dim).uniform_(-1,1))
-        self.gru_dropout1 = nn.Dropout(dropout_rate)
+        self.gru_dropout= nn.Dropout(dropout_rate)
         self.gru = nn.GRU(embedding_dim, hidden_size,batch_first=True)
-        self.gru_dropout2 = nn.Dropout(dropout_rate)
         self.linear = nn.Linear(hidden_size, output_size)
     
     def forward(self, input, hidden):
@@ -70,10 +74,10 @@ class Intra_RNN(nn.Module):
             embeddings = self.embed(input)
         else:
             embeddings = input
-        embeddings = self.gru_dropout1(embeddings)
+        embeddings = self.gru_dropout(embeddings)
         out, hidden = self.gru(embeddings, hidden)
         
-        out = self.gru_dropout2(out)
+        out = self.gru_dropout(out)
         out = self.linear(out)
         
         return out, hidden
@@ -102,7 +106,7 @@ criterion = nn.CrossEntropyLoss()
 #CUSTOM CROSS ENTROPY LOSS(Replace as soon as pytorch has implemented an option for non-summed losses)
 #https://github.com/pytorch/pytorch/issues/264
 def masked_cross_entropy_loss(y_hat, y):
-    logp = -F.log_softmax(y_hat)
+    logp = -F.log_softmax(y_hat, dim=1)
     logpy = torch.gather(logp,1,y.view(-1,1))
     mask = Variable(y.data.float().sign().view(-1,1))
     logpy = logpy*mask
@@ -177,7 +181,7 @@ num_test_batches = datahandler.get_num_test_batches()
 epoch_loss = 0
 #epoch loop
 while epoch_nr < MAX_EPOCHS:
-    print("Starting epoch #" + str(epoch_nr))
+    #print("Starting epoch #" + str(epoch_nr))
     start_time_epoch = time.time()
 
     #reset state of datahandler and get first training batch
@@ -198,51 +202,61 @@ while epoch_nr < MAX_EPOCHS:
         xinput, targetvalues, sl = datahandler.get_next_train_batch()
 
         #print batch loss and ETA occationally
-        if batch_nr%1000 == 0:
-            print("Batch: " + str(batch_nr) + "/" + str(num_training_batches) + " loss: " + str(batch_loss))
-            eta = (batch_runtime*(num_training_batches-batch_nr))/60
-            eta = "%.2f" % eta
-            print(" | ETA:", eta, "minutes.")
+        if(debug):
+            if batch_nr%1000 == 0:
+                print("Batch: " + str(batch_nr) + "/" + str(num_training_batches) + " loss: " + str(batch_loss))
+                eta = (batch_runtime*(num_training_batches-batch_nr))/60
+                eta = "%.2f" % eta
+                print(" | ETA:", eta, "minutes.")
         batch_nr += 1
     #finished training in epoch
-    print("Epoch loss: " + str(epoch_loss/batch_nr))
-    print("Starting testing")
+    if(debug):
+        print("Epoch loss: " + str(epoch_loss/batch_nr))
 
-    #initialize trainer
-    tester = Tester()
 
-    #reset state of datahandler and get first test batch
-    datahandler.reset_user_batch_data()
-    xinput, targetvalues, sl = datahandler.get_next_test_batch()
-    batch_nr = 0
-    rnn.eval()
-    while(len(xinput) > int(BATCHSIZE/2)):
-    	#batch testing
-        batch_nr += 1
-        batch_start_time = time.time()
 
-        #run predictions on test batch
-        k_predictions = predict_on_batch(xinput, targetvalues, sl)
 
-        #evaluate results
-        tester.evaluate_batch(k_predictions, targetvalues, sl)
+    if(epoch_nr == MAX_EPOCHS-1):
+        if(debug):
+            print("Starting testing")
 
-        #get next test batch
+        #initialize trainer
+        tester = Tester(pickle_path+ dataset + str(SEED))
+
+        #reset state of datahandler and get first test batch
+        datahandler.reset_user_batch_data()
         xinput, targetvalues, sl = datahandler.get_next_test_batch()
-        batch_runtime = time.time() - batch_start_time
+        batch_nr = 0
+        rnn.eval()
+        while(len(xinput) > int(BATCHSIZE/2)):
+        	#batch testing
+            batch_nr += 1
+            batch_start_time = time.time()
 
-        #print progress and ETA occationally
-        if batch_nr%400 == 0:
-            print("Batch: " + str(batch_nr) + "/" + str(num_test_batches))
-            eta = (batch_runtime*(num_test_batches-batch_nr))/60
-            eta = "%.2f" % eta
-            print(" | ETA:", eta, "minutes.")
-        
-    # Print final test stats for epoch
-    test_stats, current_recall5, current_recall20 = tester.get_stats_and_reset()
-    print("Recall@5 = " + str(current_recall5))
-    print("Recall@20 = " + str(current_recall20))
-    print("Epoch #" + str(epoch_nr) + " Time: " + str(time.time()-start_time_epoch))
-    print(test_stats)
+            #run predictions on test batch
+            k_predictions = predict_on_batch(xinput, targetvalues, sl)
+
+            #evaluate results
+            tester.evaluate_batch(k_predictions, targetvalues, sl)
+
+            #get next test batch
+            xinput, targetvalues, sl = datahandler.get_next_test_batch()
+            batch_runtime = time.time() - batch_start_time
+
+            #print progress and ETA occationally
+            if(debug):
+                if batch_nr%400 == 0:
+                    print("Batch: " + str(batch_nr) + "/" + str(num_test_batches))
+                    eta = (batch_runtime*(num_test_batches-batch_nr))/60
+                    eta = "%.2f" % eta
+                    print(" | ETA:", eta, "minutes.")
+            
+        # Print final test stats for epoch
+        test_stats, current_recall5, current_recall20 = tester.get_stats_and_reset()
+        if(debug):
+            print("Recall@5 = " + str(current_recall5))
+            print("Recall@20 = " + str(current_recall20))
+            print("Epoch #" + str(epoch_nr) + " Time: " + str(time.time()-start_time_epoch))
+            print(test_stats)
     epoch_nr += 1
     epoch_loss = 0

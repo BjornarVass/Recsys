@@ -74,9 +74,9 @@ class Time_Loss(nn.Module):
         self.w = nn.Parameter(torch.FloatTensor([-0.1]))
         #self.w.data.uniform_(-0.1,0.1)
     
-    def forward(self, time, target):
+    def forward(self, time, target, epsilon):
         time_exp = torch.exp(time)
-        w_target = self.w*target
+        w_target = self.w*torch.pow(target, epsilon)
         exps = (time_exp*(1-torch.exp(w_target)))/self.w
         output = time+w_target+exps
         return -output

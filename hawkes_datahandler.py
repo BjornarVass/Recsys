@@ -28,14 +28,41 @@ class DataHandler:
             raise Exception("""Testset and trainset have different 
                     amount of users.""")
     
-        # batch control
         self.use_day = use_day
         self.time_factor = 24 if self.use_day else 1
         self.min_time = min_time/self.time_factor
         self.max_time = 500/self.time_factor
         self.divident = 3600*self.time_factor
         self.user_gap_indices = {}
-        self.init_user_times()
+        self.split_indices = {}
+        self.new_init_user_times()
+
+    def new_init_user_times(self):
+        self.user_times = [None]*self.num_users
+        self.max_time = 500/self.time_factor
+        upper_val = self.max_time + 0.01
+        for k in self.trainset.keys():
+            time = 0
+            times = [0]
+            train = self.trainset[k] 
+            for session_index in range(1,len(train)):
+                gap = (train[session_index][0][0]-train[session_index-1][self.train_session_lengths[k][session_index-1]][0])/self.divident
+                if(gap > self.min_time):
+                    time += min(gap, upper_val)
+                    times.append(time)
+            test = self.testset[k]
+            self.split_indices[k] = len(times)
+            if(len(train) > 0 and len(test) > 0):
+                gap = (test[0][0][0]-train[-1][self.train_session_lengths[k][-1]][0])/self.divident
+                if(gap > self.min_time):
+                    time += min(gap, upper_val)
+                    times.append(time)
+            for session_index in range(1,len(test)):
+                gap = (test[session_index][0][0]-test[session_index-1][self.test_session_lengths[k][session_index-1]][0])/self.divident
+                if(gap > self.min_time):
+                    time += min(gap, upper_val)
+                    times.append(time)
+            self.user_times[k] = times
 
 
     def init_user_times(self):
@@ -63,13 +90,17 @@ class DataHandler:
             self.user_times[k] = times
             self.remove_long_gaps(k)
         
-    def remove_long_gaps(self, k):        
+    def remove_long_gaps(self, k):
+        split_index = len(self.trainset[k])
+
         long_gap_indices = []
         discrepencies = []
         for i in range(len(self.user_times[k])-1):
             if(self.user_times[k][i+1]-self.user_times[k][i] > self.max_time):
                 long_gap_indices.append(i)
                 discrepencies.append((self.user_times[k][i+1]-self.user_times[k][i])-self.max_time)
+                if i <= split_index:
+                    split_index -= 1
         remove = sum(discrepencies)
         index = len(long_gap_indices)-1
         if(index > 0):
@@ -82,6 +113,7 @@ class DataHandler:
         gaps = np.array(long_gap_indices)
         gaps = gaps+1
         self.user_gap_indices[k] = gaps
+        self.split_indices[k] = split_index
 
 
 
@@ -91,3 +123,6 @@ class DataHandler:
 
     def get_gaps(self):
         return self.user_gap_indices
+
+    def get_split_indices(self):
+        return self.split_indices

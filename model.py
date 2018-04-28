@@ -269,7 +269,7 @@ class RecommenderModel:
 
 
             #calculate the time loss
-            time_loss = self.time_loss_func(times, T_targets)
+            time_loss = self.time_loss_func(times, T_targets, self.params["EPSILON"])
 
             #mask out "fake session time-gaps" from time loss
             mask = Variable(T_targets.data.ge(self.time_threshold).float())

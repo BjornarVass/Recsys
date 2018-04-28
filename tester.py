@@ -1,10 +1,12 @@
+import pickle
 
 class Tester:
 
-    def __init__(self, k=[5, 10, 20]):
+    def __init__(self, pickle_path = "dump", k=[5, 10, 20]):
         self.k = k
         self.session_length = 19
         self.n_decimals = 4
+        self.pickle_path = pickle_path
         self.initialize()
 
     def initialize(self):
@@ -73,7 +75,22 @@ class Tester:
 
         return score_message, recall5, recall20
 
+    def store_stats(self):
+        rec_dict = {}
+        rec_dict["counts"] = self.i_count
+        rec_dict["k"] = self.k
+        rec_dict["session_length"] = self.session_length
+        rec_dict["recall"] = self.recall
+        rec_dict["mrr"] = self.mrr
+        rec_dict["temporal"] = False
+
+        pickle_dict = {"rec" : rec_dict}
+
+        pickle.dump(pickle_dict, open(self.pickle_path + ".pickle", "wb"))
+        return
+
     def get_stats_and_reset(self):
         message = self.get_stats()
+        self.store_stats()
         self.initialize()
         return message

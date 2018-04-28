@@ -5,28 +5,28 @@ import pickle
 
 #datasets
 reddit = "subreddit"
-reddit_std = "subreddit_std_eight"
+reddit_time = "subreddit_time"
 lastfm = "lastfm"
-lastfm_simple = "lastfm_sim"
+lastfm_time = "lastfm_time"
 instacart = "instacart"
 
 #global settings
 USE_DAY = True
-dataset = lastfm
+dataset = reddit_time
 n_decimals = 4
 
 #parameters
-if(dataset == lastfm or dataset == lastfm_simple or dataset == instacart):
+if(dataset == lastfm or dataset == lastfm_time or dataset == instacart):
     min_time = 0.5
-elif(dataset == reddit or dataset == reddit_std):
+elif(dataset == reddit or dataset == reddit_time):
     min_time = 1.0
 
 #switchable
-full_hist = False
+full_hist = True
 gap_strat = ""
 
 add = "_" if gap_strat != "" else ""
-pickle_path = "hawkes_regular_" + dataset + add + gap_strat + "4.pickle"
+pickle_path = "hawkes_full_" + dataset + add + gap_strat + "4.pickle"
 omega = 8
 history_length = 15
 future_length = 1
@@ -43,11 +43,14 @@ if(gap_strat == ""):
 
     data = datahandler.get_times()
     user_gaps = datahandler.get_gaps()
+    split_indices = datahandler.get_split_indices()
 else:
     times_path = "/data/stud/bjorva/datasets/" + dataset + "/gaps_" + gap_strat + ".pickle"
     raw_data = pickle.load(open(times_path,"rb"))
     data = {}
+    split_indices = {}
     for user in raw_data["train"].keys():
+        split_index = len(raw_data["train"][user])
         if (len(raw_data["train"][user])>0):
             times = [raw_data["train"][user][0]]
             start_train = 1
@@ -59,11 +62,13 @@ else:
         for i in range(start_train,len(raw_data["train"][user])):
             if raw_data["train"][user][i] != 0:
                 times.append(raw_data["train"][user][i]+times[-1])
+            else:
+                split_index -= 1
         for i in range(start_test,len(raw_data["test"][user])):
             if raw_data["test"][user][i] != 0:
                 times.append(raw_data["test"][user][i]+times[-1])
         data[user] = times
-
+        split_indices[user] = split_index
 #setting up data structures for keeping track of the results
 mae = np.zeros((future_length,len(time_buckets)))
 percentage_errors = np.zeros((future_length,len(time_buckets)))
@@ -75,7 +80,10 @@ for user in range(len(data)):
     history = history_length
     future = future_length
     avg_gap = (data[user][-1]-data[user][0])/len(data[user])
-    split_index = int(len(data[user])*0.8)
+    split_index = split_indices[user]
+    #drop the user if there are less than 2 sessions in the training set or all data is training data
+    if split_index < 2 or split_index >= len(data[user])-1:
+        continue
 
     #handling of users with short sequences of sessions
     if(split_index < history_length):
