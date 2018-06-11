@@ -13,11 +13,12 @@ from torch.autograd import Variable
 #datasets
 reddit = "subreddit"
 lastfm = "lastfm"
+nowplaying = "nowplaying"
 
 #set current dataset here
 dataset = lastfm
 dataset_path = "/data/stud/bjorva/datasets/" + dataset + "/4_train_test_split.pickle"
-pickle_path = "/data/stud/bjorva/logs/intra/"
+pickle_path = "/data/stud/bjorva/logs/nowplaying/"
 
 #universal settings
 BATCHSIZE = 100

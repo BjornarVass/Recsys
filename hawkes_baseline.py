@@ -12,7 +12,7 @@ instacart = "instacart"
 
 #global settings
 USE_DAY = True
-dataset = reddit_time
+dataset = lastfm
 n_decimals = 4
 
 #parameters
@@ -23,7 +23,7 @@ elif(dataset == reddit or dataset == reddit_time):
 
 #switchable
 full_hist = True
-gap_strat = ""
+gap_strat = "hawkes"
 
 add = "_" if gap_strat != "" else ""
 pickle_path = "hawkes_full_" + dataset + add + gap_strat + "4.pickle"

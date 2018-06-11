@@ -25,17 +25,18 @@ lastfm_time = "lastfm_time"
 lastfm_simple = "lastfm_sim"
 lastfm3 = "lastfm3"
 instacart = "instacart"
+nowplaying = "nowplaying"
 
 #runtime settings
 flags = {}
 dataset = lastfm
 flags["context"] = True
 flags["temporal"] = True
-SEED = 1
-GPU = 1
+SEED = 2
+GPU = 0
 gap_strat = ""
 add = "_" if gap_strat != "" else ""
-directory = "/data/stud/bjorva/logs/sqrt/" + gap_strat + add
+directory = "/data/stud/bjorva/logs/dim/" + gap_strat + add
 debug = False
 
 torch.manual_seed(SEED)
@@ -62,7 +63,7 @@ flags["use_hidden"] = True
 params["ALPHA"] = 0.45
 params["BETA"] = 0.45
 params["GAMMA"] = 0.1
-params["EPSILON"] = 0.5
+params["EPSILON"] = 1.0
 flags["use_day"] = True
 
 #data path and log/model-name
@@ -88,7 +89,7 @@ if dataset == reddit or dataset == reddit_time:
         MAX_EPOCHS -= 10
     min_time = 1.0
     flags["freeze"] = False
-elif dataset == lastfm or dataset == lastfm_simple or dataset == lastfm_time:
+elif dataset == lastfm or dataset == lastfm_simple or dataset == lastfm_time or dataset == nowplaying:
     dims["EMBEDDING_DIM"] = 100
     params["lr"] = 0.001
     params["dropout"] = 0.2
