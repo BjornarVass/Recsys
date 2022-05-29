@@ -92,6 +92,7 @@ def convert_timestamps_lastfm():
     num_skipped = 0
     count = 0
     user_info = open(DATASET_DIR + '/userid-profile.tsv', 'r', buffering=10000, encoding='utf8')
+    user_info.readline()
     with open(DATASET_FILE, 'rt', buffering=10000, encoding='utf8') as dataset:
        for line in dataset:
            line = line.split('\t')
